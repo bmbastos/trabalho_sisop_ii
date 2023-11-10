@@ -6,7 +6,7 @@
 
 ### Integrantes:
 * Bruno Marques Bastos (314518)
-* Emanuel (cartão)
+* Eduardo (cartão)
 * Marcel (cartão)
 * Vinícius (cartão)
 
