@@ -8,7 +8,7 @@
 * Bruno Marques Bastos (314518)
 * Eduardo (cartão)
 * Marcel (cartão)
-* Vinícius (cartão)
+* Vinícius (330087)
 
 ## Trabalho da disciplina de Sistemas Operacionais 2
 Este projeto consiste na implementação de um serviço semelhante ao Dropbox, para permitir o compartilhamento e a sincronização automática de arquivos entre diferentes dispositivos de um mesmo usuário. O trabalho está dividido em duas partes. A primeira parte compreende tópicos como: threads, processos, comunicação utilizando sockets e sincronização de processos utilizando mutex e semáforos. Posteriormente, novas funcionalidades serão adicionadas ao projeto. A aplicação deverá executar emambientes Unix (Linux), mesmo que tenha sido desenvolvida em outras plataformas. O programa deverá ser implementado utilizando a API Transmission Control Protocol (TCP) sockets do Unix e utilizando C/C++.
