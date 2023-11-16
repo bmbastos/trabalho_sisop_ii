@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h> 
+#include "./functions.h"
 
 #define PORT 4000
 
@@ -37,25 +38,25 @@ int main(int argc, char *argv[])
 	
     
 	if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0) 
-        printf("ERROR connecting\n");
+    printf("ERROR connecting\n");
 
-    printf("Enter the message: ");
-    bzero(buffer, 256);
-    fgets(buffer, 256, stdin);
-    
+    // printf("Enter the message: ");
+    // bzero(buffer, 256);
+    // fgets(buffer, 256, stdin);
+    userInterface();
 	/* write in the socket */
-	n = write(sockfd, buffer, strlen(buffer));
-    if (n < 0) 
-		printf("ERROR writing to socket\n");
+	// n = write(sockfd, buffer, strlen(buffer));
+  //   if (n < 0) 
+	// 	printf("ERROR writing to socket\n");
 
-    bzero(buffer,256);
+  //   bzero(buffer,256);
 	
-	/* read from the socket */
-    n = read(sockfd, buffer, 256);
-    if (n < 0) 
-		printf("ERROR reading from socket\n");
+	// /* read from the socket */
+  //   n = read(sockfd, buffer, 256);
+  //   if (n < 0) 
+	// 	printf("ERROR reading from socket\n");
 
-    printf("%s\n",buffer);
+  //   printf("%s\n",buffer);
     
 	close(sockfd);
     return 0;
