@@ -7,7 +7,7 @@
 ### Integrantes:
 * Bruno Marques Bastos (314518)
 * Eduardo (313439)
-* Marcel (cartão)
+* Marcel (314937)
 * Vinícius (330087)
 
 ## Trabalho da disciplina de Sistemas Operacionais 2
