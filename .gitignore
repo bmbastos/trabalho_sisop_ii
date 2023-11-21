@@ -1,4 +1,6 @@
 *.o
-server
-client
 bin/*
+client/clientFiles/*
+server/serverFiles/*
+client/client
+server/server

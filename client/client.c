@@ -6,7 +6,8 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h> 
-#include "./functions.h"
+#include "../commons/commons.h"
+#include "./interface.h"
 
 #define PORT 4000
 

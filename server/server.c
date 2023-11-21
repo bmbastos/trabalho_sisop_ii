@@ -64,6 +64,8 @@ int main(int argc, char *argv[])
     }
 	
 	listen(sockfd, 5);
+
+    printf("Server is ready to accept connections.");
 	
 	clilen = sizeof(struct sockaddr_in);
 	if ((newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen)) == -1) {

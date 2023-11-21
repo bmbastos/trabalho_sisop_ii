@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <string.h>
-#include "./functions.h"
+#include "./interface.h"
 #include <unistd.h>
 #define CLIENT_FILE_PATH "./clientFiles/"
 
