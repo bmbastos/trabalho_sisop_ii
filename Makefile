@@ -37,8 +37,8 @@ all: functions client server
 functions:	./functions.c 
 	gcc -c ./functions.c && mv functions.o ./bin
 
-client:	./client_tcp.c
-	gcc -o ./client_tcp ./client_tcp.c ./bin/functions.o -pthread
+client:	./client.c
+	gcc -o ./client ./client.c ./bin/functions.o -pthread
 
-server: ./server_tcp.c
-	gcc -o ./server_tcp ./server_tcp.c ./bin/functions.o -pthread
+server: ./server.c
+	gcc -o ./server ./server.c ./bin/functions.o -pthread
