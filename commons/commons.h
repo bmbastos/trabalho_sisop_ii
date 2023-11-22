@@ -1,3 +1,3 @@
 #include <stdio.h>
 
-void to_do();
+int is_equal(const char *str1, const char *str2);

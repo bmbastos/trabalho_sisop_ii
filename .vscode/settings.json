@@ -1,6 +1,9 @@
 {
     "files.associations": {
         "interface.h": "c",
-        "types.h": "c"
+        "types.h": "c",
+        "commons.h": "c",
+        "socket.h": "c",
+        "pthread.h": "c"
     }
 }

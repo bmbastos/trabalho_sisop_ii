@@ -6,6 +6,7 @@
 #define MAX_MESSAGE_LENGTH 100
 #define BUFFER_SIZE 1024
 
-void userInterface();
+void userInterface(int sockfd);
+int send_command_to_socket(int socket, const char *command, const char *argument);
 void handleDownload(const char *filename, int sockfd);
 void tokenizeInput(char *command, char arguments[MAX_ARGUMENTS][MAX_ARGUMENT_LENGTH], int *argCount);

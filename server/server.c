@@ -6,10 +6,8 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <fcntl.h>
-
-#define PORT 4000
-#define SERVER_FILE_PATH "./serverFiles/"
+#include "../commons/commons.h"
+#include "./commands.h"
 
 typedef struct
 {
@@ -17,43 +15,6 @@ typedef struct
     char argument[50];
     int socket;
 } thread_data_t;
-
-int send_file(int client_socket, const char *filename)
-{
-    char file_path[256];
-    snprintf(file_path, sizeof(file_path), "%s%s", SERVER_FILE_PATH, filename);
-
-    FILE *file = fopen(file_path, "rb");
-    if (file == NULL)
-    {
-        printf("ERROR: Não foi possível abrir o arquivo indicado\n");
-        return -1;
-    }
-
-    fseek(file, 0, SEEK_END);
-    long file_size = ftell(file);
-    fseek(file, 0, SEEK_SET);
-
-    if (file_size <= 0)
-    {
-        printf("ERROR: Arquivo não existe ou vazio.\n");
-        fclose(file);
-        return -1;
-    }
-
-    send(client_socket, &file_size, sizeof(file_size), 0);
-
-    char buffer[1024];
-    size_t bytes_read;
-
-    while ((bytes_read = fread(buffer, 1, sizeof(buffer), file)) > 0)
-    {
-        send(client_socket, buffer, bytes_read, 0);
-    }
-
-    fclose(file);
-    return 1;
-}
 
 int setupSocket(int *sockfd)
 {
@@ -92,17 +53,80 @@ void *handleInput(void *arg)
     thread_data_t *data = (thread_data_t *)arg;
     int n;
 
-    if (strcmp(data->command, "download") == 0)
+    char cmd[50];
+    strcpy(cmd, data->command);
+
+    if (is_equal(cmd, "download"))
     {
         n = send_file(data->socket, data->argument);
 
         if (n < 0)
         {
-            perror("ERROR writing to socket\n");
+            perror("ERROR on download command\n");
             return (void *)-1;
         }
 
         printf("File %s sent successfully.\n", data->argument);
+    }
+    else if (is_equal(cmd, "upload"))
+    {
+        n = receive_file(data->socket, data->argument);
+
+        if (n < 0)
+        {
+            perror("ERROR on upload command\n");
+            return (void *)-1;
+        }
+
+        printf("File %s sent successfully.\n", data->argument);
+    }
+    else if (is_equal(cmd, "delete"))
+    {
+        n = delete_file(data->socket, data->argument);
+
+        if (n < 0)
+        {
+            perror("ERROR on delete command\n");
+            return (void *)-1;
+        }
+
+        printf("File %s deleted successfully.\n", data->argument);
+    }
+    else if (is_equal(cmd, "list_server"))
+    {
+        n = list_server(data->socket);
+
+        if (n < 0)
+        {
+            perror("ERROR on list_server command\n");
+            return (void *)-1;
+        }
+
+        printf("Server list sent successfully.\n");
+    }
+    else if (is_equal(cmd, "get_sync_dir"))
+    {
+        n = get_sync_dir(data->socket);
+
+        if (n < 0)
+        {
+            perror("ERROR on get_sync_dir command\n");
+            return (void *)-1;
+        }
+
+        printf("Synchronization successfully.\n");
+    }
+    else if (is_equal(cmd, "exit"))
+    {
+        n = close(data->socket);
+
+        if (n < 0)
+        {
+            perror("ERROR on exit command\n");
+            return (void *)-1;
+        }
+
+        printf("Exited connection successfully.\n");
     }
     else
     {
@@ -130,7 +154,6 @@ int main(int argc, char *argv[])
 
     while (1)
     {
-        printf("Ready");
         newsockfd = -1;
         if ((newsockfd = accept(sockfd, (struct sockaddr *)&cli_addr, &clilen)) < 0)
         {
