@@ -84,7 +84,7 @@ void *handleInput(void *arg)
     }
     else if (is_equal(cmd, "delete"))
     {
-        n = delete_file(data->socket, data->argument);
+        n = delete_file(data->socket, data->argument, data->userpath);
 
         if (n < 0)
         {

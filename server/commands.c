@@ -47,9 +47,18 @@ int receive_file(int client_socket, const char *filename) {
     return -1;
 }
 
-int delete_file(int client_socket, const char *filename) {
-    perror("To be done\n");
-    return -1;
+int delete_file(int client_socket, const char *filename, const char *filepath) {
+    char file_path[256];
+    snprintf(file_path, sizeof(file_path), "%s/%s", filepath, filename);
+
+    if (remove(file_path) != 0) {
+        perror("Error deleting file");
+        return -1;
+    }
+
+    printf("File %s deleted successfully.\n", filename);
+
+    return 1;
 }
 
 int list_server(int client_socket) {
