@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <sys/stat.h>
 #include "../commons/commons.h"
 #include "./commands.h"
 
@@ -13,6 +14,7 @@ typedef struct
 {
     char command[50];
     char argument[50];
+    char userpath[50];
     int socket;
 } thread_data_t;
 
@@ -58,7 +60,7 @@ void *handleInput(void *arg)
 
     if (is_equal(cmd, "download"))
     {
-        n = send_file(data->socket, data->argument);
+        n = send_file(data->socket, data->argument, data->userpath);
 
         if (n < 0)
         {
@@ -131,11 +133,13 @@ void *handleInput(void *arg)
     else
     {
         printf("Invalid command received.\n");
+
+        return (void *)0;
     }
 
-    close(data->socket);
-    free(data);
-    return (void *)0;
+    // close(data->socket);
+    // free(data);
+    // return (void *)0;
 }
 
 int main(int argc, char *argv[])
@@ -144,6 +148,7 @@ int main(int argc, char *argv[])
     socklen_t clilen;
     char buffer[256];
     struct sockaddr_in cli_addr;
+    int folderChecked = 0;
 
     if (setupSocket(&sockfd) != 0)
     {
@@ -161,38 +166,57 @@ int main(int argc, char *argv[])
             continue;
         }
 
-        bzero(buffer, 256);
-        n = read(newsockfd, buffer, 256);
+        while(1) {
+            bzero(buffer, 256);
+            n = read(newsockfd, buffer, 256);
 
-        if (n < 0)
-        {
-            perror("ERROR reading command from socket\n");
-            continue;
+            if (n < 0)
+            {
+                perror("ERROR reading command from socket\n");
+                continue;
+            }
+
+            char username[50];
+            strcpy(username, buffer);
+            char user_dir[100];
+
+            if(folderChecked == 0) {
+                snprintf(user_dir, sizeof(user_dir), "%s%s", SYNC_DIR_BASE_PATH, username);
+                if (mkdir(user_dir, 0777) == -1) {
+                    printf("Pasta %s já existe.\n", user_dir);
+                } else {
+                    printf("Pasta %s criada.\n", user_dir);
+                }
+
+                folderChecked = 1;
+            }
+
+            thread_data_t *data = malloc(sizeof(thread_data_t));
+            if (data == NULL)
+            {
+                perror("ERROR allocating memory for thread data");
+                continue;
+            }
+
+            sscanf(buffer, "%s %s", data->command, data->argument);
+            data->socket = newsockfd;
+            strcpy(data->userpath, user_dir);
+
+            printf("Received command %s %s\n", data->command, data->argument);
+
+            pthread_t thread;
+            if (pthread_create(&thread, NULL, handleInput, (void *)data) < 0)
+            {
+                perror("ERROR creating thread");
+                free(data);
+                continue;
+            }
+
+            pthread_detach(thread);
         }
-
-        thread_data_t *data = malloc(sizeof(thread_data_t));
-        if (data == NULL)
-        {
-            perror("ERROR allocating memory for thread data");
-            continue;
-        }
-
-        sscanf(buffer, "%s %s", data->command, data->argument);
-        data->socket = newsockfd;
-
-        printf("Received command %s %s\n", data->command, data->argument);
-
-        pthread_t thread;
-        if (pthread_create(&thread, NULL, handleInput, (void *)data) < 0)
-        {
-            perror("ERROR creating thread");
-            free(data);
-            continue;
-        }
-
-        pthread_detach(thread);
+        
+        close(sockfd);
     }
 
-    close(sockfd);
     return 0;
 }

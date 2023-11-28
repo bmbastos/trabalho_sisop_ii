@@ -13,7 +13,7 @@
 #define PORT 4000
 
 void printUsage() {
-    fprintf(stderr, "usage: ./client <hostname>\n");
+    fprintf(stderr, "usage: ./client <username> <hostname>\n");
     exit(EXIT_FAILURE);
 }
 
@@ -52,20 +52,27 @@ struct sockaddr_in initializeServerAddress(struct hostent *server) {
 }
 
 int main(int argc, char *argv[]) {
-    if (argc < 2) {
+    if (argc < 3) {
         printUsage();
     }
 
-    struct hostent *server = getServerHost(argv[1]);
+    const char *username = argv[1];
+    struct hostent *server = getServerHost(argv[2]);
+
     struct sockaddr_in serv_addr = initializeServerAddress(server);
 
     int sockfd = createSocket();
     connectToServer(sockfd, serv_addr);
     
+    if(write(sockfd, username, strlen(username)) < 0) {
+        perror("Error ao enviar username para o servidor.");
+        exit(EXIT_FAILURE);
+    }
+
     pthread_t userInterfaceThread;
 
     if(pthread_create(&userInterfaceThread, NULL, userInterface, (void *) &sockfd)) {
-        fprintf(stderr, "Error creating thread\n");
+        fprintf(stderr, "Erro ao criar thread.\n");
         exit(EXIT_FAILURE);
     }
 

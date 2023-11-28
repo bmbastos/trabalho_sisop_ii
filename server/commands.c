@@ -4,12 +4,13 @@
 #include "../commons/commons.h"
 #include "./commands.h"
 
-int send_file(int client_socket, const char *filename)
+int send_file(int client_socket, const char *filename, const char *filepath)
 {
     char file_path[256];
-    snprintf(file_path, sizeof(file_path), "%s%s", SERVER_FILE_PATH, filename);
+    snprintf(file_path, sizeof(file_path), "%s/%s", filepath, filename);
 
     FILE *file = fopen(file_path, "rb");
+
     if (file == NULL)
     {
         printf("ERROR: Não foi possível abrir o arquivo indicado\n");
