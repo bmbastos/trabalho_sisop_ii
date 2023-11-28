@@ -5,7 +5,7 @@
 #include "../commons/commons.h"
 #include <unistd.h>
 
-void processInput(char *command, int sockfd)
+int processInput(char *command, void *sockfd)
 {
     char arguments[MAX_ARGUMENTS][MAX_ARGUMENT_LENGTH];
     int argCount = 0;
@@ -16,7 +16,7 @@ void processInput(char *command, int sockfd)
     {
         if (argCount == 2)
         {
-            upload_file(arguments[1], sockfd);
+            upload_file(arguments[1], *((int *)sockfd));
         }
         else
         {
@@ -27,7 +27,7 @@ void processInput(char *command, int sockfd)
     {
         if (argCount == 2)
         {
-            download_file(arguments[1], sockfd);
+            download_file(arguments[1], *((int *)sockfd));
         }
         else
         {
@@ -38,7 +38,7 @@ void processInput(char *command, int sockfd)
     {
         if (argCount == 2)
         {
-            delete_file(arguments[1], sockfd);
+            delete_file(arguments[1], *((int *)sockfd));
         }
         else
         {
@@ -49,7 +49,7 @@ void processInput(char *command, int sockfd)
     {
         if (argCount == 1)
         {
-            list_server(sockfd);
+            list_server(*((int *)sockfd));
         }
         else
         {
@@ -60,7 +60,7 @@ void processInput(char *command, int sockfd)
     {
         if (argCount == 2)
         {
-            list_client(sockfd);
+            list_client(*((int *)sockfd));
         }
         else
         {
@@ -71,7 +71,7 @@ void processInput(char *command, int sockfd)
     {
         if (argCount == 1)
         {
-            get_sync_dir(sockfd);
+            get_sync_dir(*((int *)sockfd));
         }
         else
         {
@@ -82,12 +82,14 @@ void processInput(char *command, int sockfd)
     {
         if (argCount == 1)
         {
-            if (close(sockfd) < 0)
+            if (close(*((int *)sockfd)) < 0)
             {
                 perror("Error closing socket\n");
             } else {
                 printf("Socket closed succesfully\n");
             }
+
+            return 1; // breaks the 'while' loop
         }
         else
         {
@@ -98,6 +100,8 @@ void processInput(char *command, int sockfd)
     {
         printf("Invalid command\n");
     }
+
+    return 0;
 }
 
 void tokenizeInput(char *command, char arguments[MAX_ARGUMENTS][MAX_ARGUMENT_LENGTH], int *argCount)
@@ -110,24 +114,28 @@ void tokenizeInput(char *command, char arguments[MAX_ARGUMENTS][MAX_ARGUMENT_LEN
     }
 }
 
-void userInterface(int sockfd)
+void *userInterface(void  *sockfd)
 {
-    char input[50];
+    int shouldExit = 0;
 
-    printf("# upload\n");
-    printf("# download\n");
-    printf("# delete\n");
-    printf("# list_server\n");
-    printf("# list_client\n");
-    printf("# get_sync_dir\n");
-    printf("# exit\n");
-    printf("Digite um comando: ");
-    fgets(input, sizeof(input), stdin);
+    while (!shouldExit) {
+        char input[50];
 
-    input[strcspn(input, "\n")] = '\0';
+        printf("# upload\n");
+        printf("# download\n");
+        printf("# delete\n");
+        printf("# list_server\n");
+        printf("# list_client\n");
+        printf("# get_sync_dir\n");
+        printf("# exit\n");
+        printf("Digite um comando: ");
+        fgets(input, sizeof(input), stdin);
 
-    if (input[0] != '\0')
-    {
-        processInput(input, sockfd);
+        input[strcspn(input, "\n")] = '\0';
+
+        if (input[0] != '\0')
+        {
+            shouldExit = processInput(input, sockfd);
+        }
     }
 }

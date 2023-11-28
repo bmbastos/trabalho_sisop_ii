@@ -3,6 +3,7 @@
 #include "./interface.h"
 #include <unistd.h>
 #include "./commands.h"
+#include <sys/select.h>
 
 void upload_file(const char* filename, int socket)
 {
@@ -42,7 +43,7 @@ void download_file(const char *filename, int sockfd)
     char buffer[BUFFER_SIZE];
     while (file_size > 0)
     {
-        int bytes_received = receive_data(sockfd, buffer, sizeof(buffer), READ_TIMEOUT);
+        int bytes_received = receive_data(sockfd, buffer, file_size, READ_TIMEOUT);
         if (bytes_received < 0)
         {
             fclose(received_file);

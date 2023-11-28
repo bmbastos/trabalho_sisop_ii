@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h> 
+#include <pthread.h>
 #include "../commons/commons.h"
 #include "./interface.h"
 
@@ -13,14 +14,14 @@
 
 void printUsage() {
     fprintf(stderr, "usage: ./client <hostname>\n");
-    exit(0);
+    exit(EXIT_FAILURE);
 }
 
 struct hostent* getServerHost(char *hostname) {
     struct hostent *server = gethostbyname(hostname);
     if (server == NULL) {
         fprintf(stderr, "ERROR, no such host\n");
-        exit(0);
+        exit(EXIT_FAILURE);
     }
     return server;
 }
@@ -29,7 +30,7 @@ int createSocket() {
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd == -1) {
         fprintf(stderr, "ERROR opening socket\n");
-        exit(0);
+        exit(EXIT_FAILURE);
     }
     return sockfd;
 }
@@ -37,7 +38,7 @@ int createSocket() {
 void connectToServer(int sockfd, struct sockaddr_in serv_addr) {
     if (connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
         fprintf(stderr, "ERROR connecting\n");
-        exit(0);
+        exit(EXIT_FAILURE);
     }
 }
 
@@ -58,13 +59,19 @@ int main(int argc, char *argv[]) {
     struct hostent *server = getServerHost(argv[1]);
     struct sockaddr_in serv_addr = initializeServerAddress(server);
 
-    while (1)
-    {
-      int sockfd = createSocket();
-      connectToServer(sockfd, serv_addr);
-      userInterface(sockfd);
-      close(sockfd);
+    int sockfd = createSocket();
+    connectToServer(sockfd, serv_addr);
+    
+    pthread_t userInterfaceThread;
+
+    if(pthread_create(&userInterfaceThread, NULL, userInterface, (void *) &sockfd)) {
+        fprintf(stderr, "Error creating thread\n");
+        exit(EXIT_FAILURE);
     }
+
+    pthread_join(userInterfaceThread, NULL);
+
+    close(sockfd);
     
     return 0;
 }
