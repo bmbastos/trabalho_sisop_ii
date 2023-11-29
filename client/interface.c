@@ -138,6 +138,8 @@ void processInput(const char *input, int sockfd)
         perror("\nERROR: Command not defined.\n");
         break;
     }
+
+    return 0;
 }
 
 // Cria um pacote simples
@@ -210,24 +212,28 @@ type_packet_t tokenizeInput(const char *input, char arguments[MAX_ARGUMENTS][MAX
     return packetType;
 }
 
-void userInterface(int sockfd)
+void *userInterface(void  *sockfd)
 {
-    char input[50];
+    int shouldExit = 0;
 
-    printf("# upload\n");
-    printf("# download\n");
-    printf("# delete\n");
-    printf("# list_server\n");
-    printf("# list_client\n");
-    printf("# get_sync_dir\n");
-    printf("# exit\n");
-    printf("Digite um comando: ");
-    fgets(input, sizeof(input), stdin);
+    while (!shouldExit) {
+        char input[50];
 
-    input[strcspn(input, "\n")] = '\0';
+        printf("# upload\n");
+        printf("# download\n");
+        printf("# delete\n");
+        printf("# list_server\n");
+        printf("# list_client\n");
+        printf("# get_sync_dir\n");
+        printf("# exit\n");
+        printf("Digite um comando: ");
+        fgets(input, sizeof(input), stdin);
 
-    if (input[0] != '\0')
-    {
-        realizeCommand(input, sockfd);
+        input[strcspn(input, "\n")] = '\0';
+
+        if (input[0] != '\0')
+        {
+            shouldExit = processInput(input, sockfd);
+        }
     }
 }

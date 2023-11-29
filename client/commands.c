@@ -1,5 +1,6 @@
 #include "./commands.h"
 #include "./interface.h"
+#include <sys/select.h>
 
 void upload_file(const char *filename, int socket)
 {
@@ -39,7 +40,7 @@ void download_file(const char *filename, int sockfd)
     char buffer[BUFFER_SIZE];
     while (file_size > 0)
     {
-        int bytes_received = receive_data(sockfd, buffer, sizeof(buffer), READ_TIMEOUT);
+        int bytes_received = receive_data(sockfd, buffer, file_size, READ_TIMEOUT);
         if (bytes_received < 0)
         {
             fclose(received_file);
@@ -77,7 +78,27 @@ void list_server(int socket)
         perror("Error writing to socket");
         return;
     }
-    perror("Command to be implemented\n");
+
+    long file_list_size;
+    if (receive_data(socket, &file_list_size, sizeof(file_list_size), 10) < 0)
+    {
+        fprintf(stderr, "Erro ao receber o tamanho da lista.\n");
+        return;
+    }
+
+    char file_list[2040];
+
+    while (file_list_size > 0) {
+        int bytes_received = receive_data(socket, file_list, sizeof(file_list), READ_TIMEOUT);
+        if (bytes_received < 0)
+        {
+            break;
+        }
+
+        file_list_size -= bytes_received;
+    }
+
+    printf("%s\n", file_list);
 }
 
 void list_client(int socket)
@@ -116,6 +137,7 @@ int receive_data(int sockfd, void *buffer, size_t length, int timeout_sec)
         timeout.tv_usec = 0;
 
         int ret = select(sockfd + 1, &fds, NULL, NULL, &timeout);
+
         if (ret < 0)
         {
             perror("Select error");
@@ -128,6 +150,7 @@ int receive_data(int sockfd, void *buffer, size_t length, int timeout_sec)
         }
 
         received = read(sockfd, buffer + total_received, length - total_received);
+
         if (received < 0)
         {
             perror("Error reading from socket");
