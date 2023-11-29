@@ -1,4 +1,12 @@
+#ifndef INTERFACE_H
+#define INTERFACE_H
+
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "./commands.h"
+#include "../commons/commons.h"
+#include <unistd.h>
 
 #define MAX_ARGUMENTS 5
 #define MAX_ARGUMENT_LENGTH 50
@@ -9,4 +17,9 @@
 void userInterface(int sockfd);
 int send_command_to_socket(int socket, const char *command, const char *argument);
 void handleDownload(const char *filename, int sockfd);
-void tokenizeInput(char *command, char arguments[MAX_ARGUMENTS][MAX_ARGUMENT_LENGTH], int *argCount);
+
+type_packet_t tokenizeInput(const char *input, char arguments[MAX_ARGUMENTS][MAX_ARGUMENT_LENGTH], int *argCount)
+void processInput(const char* input, int sockfd);
+packet_t *createPacket(type_packet_t type_packet, uint32_t length_of_payload, const char* payload);
+
+#endif
