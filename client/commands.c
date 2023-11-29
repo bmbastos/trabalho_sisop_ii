@@ -1,10 +1,7 @@
-#include <stdio.h>
-#include <string.h>
-#include "./interface.h"
-#include <unistd.h>
 #include "./commands.h"
+#include "./interface.h"
 
-void upload_file(const char* filename, int socket)
+void upload_file(const char *filename, int socket)
 {
     if (send_cmd_to_socket(socket, "upload", filename))
     {
@@ -63,7 +60,7 @@ void download_file(const char *filename, int sockfd)
     }
 }
 
-void delete_file(const char* filename, int socket)
+void delete_file(const char *filename, int socket)
 {
     if (send_cmd_to_socket(socket, "delete", filename))
     {
@@ -163,4 +160,16 @@ int send_cmd_to_socket_no_args(int socket, const char *command)
         return -1;
     }
     return 0;
+}
+
+void close_connection(int sockfd)
+{
+    if (close(sockfd) == -1)
+    {
+        perror("Error closing socket");
+    }
+    else
+    {
+        printf("Connection closed successfully.\n");
+    }
 }
