@@ -1,6 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <sys/socket.h>
+#include <unistd.h>
+#include <dirent.h>
+#include <string.h>
+#include <time.h>
 #include "../commons/commons.h"
 #include "./commands.h"
 
@@ -61,9 +67,51 @@ int delete_file(int client_socket, const char *filename, const char *filepath) {
     return 1;
 }
 
-int list_server(int client_socket) {
-    perror("To be done\n");
-    return -1;
+int list_server(int client_socket, const char *userpath) {
+    DIR *dir;
+    struct dirent *entry;
+    struct stat file_stat;
+
+    dir = opendir(userpath);
+    if (dir == NULL) {
+        perror("Erro ao abrir diretório.");
+        return -1;
+    }
+
+    char file_list[2048] = "";
+
+    while ((entry = readdir(dir)) != NULL) {
+        if(strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
+            char file_path[257];
+            snprintf(file_path, sizeof(file_path), "%s/%s", userpath, entry->d_name);
+            
+            stat(file_path, &file_stat);
+            
+            strcat(file_list, "\n#######################################");
+            strcat(file_list, "\nNome: ");
+            strcat(file_list, entry->d_name);
+
+            strcat(file_list, "\n\nModification time: ");
+            strcat(file_list, ctime(&file_stat.st_mtime));
+
+            strcat(file_list, "\nAccess time: ");
+            strcat(file_list, ctime(&file_stat.st_atime));
+
+            strcat(file_list, "\nCreation time: ");
+            strcat(file_list, ctime(&file_stat.st_ctime));
+            strcat(file_list, "#######################################");
+        }
+    }
+
+    printf("(server side debug) file_list: %s\n", file_list);
+    closedir(dir);
+    
+    if (write(client_socket, file_list, strlen(file_list)) < 0) {
+        perror("Erro ao enviar lista de arquivos.");
+        return -1;
+    }
+
+    return 0;
 }
 
 int get_sync_dir(int client_socket) {

@@ -96,7 +96,7 @@ void *handleInput(void *arg)
     }
     else if (is_equal(cmd, "list_server"))
     {
-        n = list_server(data->socket);
+        n = list_server(data->socket, data->userpath);
 
         if (n < 0)
         {
