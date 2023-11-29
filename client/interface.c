@@ -1,8 +1,9 @@
 #include "interface.h"
 
-void processInput(const char *input, int sockfd)
+int processInput(const char *input, int sockfd)
 {
     // Inicialização
+    int ret = 1;
     char arguments[MAX_ARGUMENTS][MAX_ARGUMENT_LENGTH];
     int argCount = 0;
 
@@ -26,19 +27,16 @@ void processInput(const char *input, int sockfd)
         printf("Conteúdo do pacote: %s\n", packet->payload);
         break;
     case CMD_UPLOAD:
-        if (argCount > 2)
+        if (argCount == 2)
         {
-            for (int i = 1; i < MAX_ARGUMENTS; i++)
-            {
-                packet_t* packet = createPacket(type_packet, (uint32_t) strlen(arguments[i]), arguments[i]);
-                // SEND COMMAND UPLOAD
-                upload_file()
-                printf("Tipo do pacote: UPLOAD\n");
-                printf("Tamanho do pacote: %d\n", packet->length_payload);
-                printf("Conteúdo do pacote: %s\n", packet->payload);
-                printf("\n");
-                destroy_packet(packet);
-            }
+            packet_t* packet = createPacket(type_packet, (uint32_t) strlen(arguments[1]), arguments[1]);
+            // SEND COMMAND UPLOAD
+            printf("Tipo do pacote: UPLOAD\n");
+            printf("Tamanho do pacote: %d\n", packet->length_payload);
+            printf("Conteúdo do pacote: %s\n", packet->payload);
+            printf("\n");
+            destroy_packet(packet);
+            ret = 0;
             break;
         }
         else
@@ -47,18 +45,16 @@ void processInput(const char *input, int sockfd)
             break;
         }
     case CMD_DOWNLOAD:
-        if (argCount > 2)
+        if (argCount == 2)
         {
-            for (int i = 1; i < MAX_ARGUMENTS; i++)
-            {
-                packet_t* packet = createPacket(type_packet, (uint32_t) strlen(arguments[i]), arguments[i]);
-                // SEND COMMAND DOWNLOAD
-                printf("Tipo do pacote: DOWNLOAD\n");
-                printf("Tamanho do pacote: %d\n", packet->length_payload);
-                printf("Conteúdo do pacote: %s\n", packet->payload);
-                printf("\n");
-                destroy_packet(packet);
-            }
+            packet_t* packet = createPacket(type_packet, (uint32_t) strlen(arguments[1]), arguments[1]);
+            // SEND COMMAND DOWNLOAD
+            printf("Tipo do pacote: DOWNLOAD\n");
+            printf("Tamanho do pacote: %d\n", packet->length_payload);
+            printf("Conteúdo do pacote: %s\n", packet->payload);
+            printf("\n");
+            destroy_packet(packet);
+            ret = 0;
             break;
         }
         else
@@ -67,18 +63,16 @@ void processInput(const char *input, int sockfd)
             break;
         }
     case CMD_DELETE:
-        if (argCount > 2)
+        if (argCount == 2)
         {
-            for (int i = 1; i < MAX_ARGUMENTS; i++)
-            {
-                packet_t* packet = createPacket(type_packet, (uint32_t) strlen(arguments[i]), arguments[i]);
-                // SEND COMMAND DELETE
-                printf("Tipo do pacote: DELETE\n");
-                printf("Tamanho do pacote: %d\n", packet->length_payload);
-                printf("Conteúdo do pacote: %s\n", packet->payload);
-                printf("\n");
-                destroy_packet(packet);
-            }
+            packet_t* packet = createPacket(type_packet, (uint32_t) strlen(arguments[1]), arguments[1]);
+            // SEND COMMAND DELETE
+            printf("Tipo do pacote: DELETE\n");
+            printf("Tamanho do pacote: %d\n", packet->length_payload);
+            printf("Conteúdo do pacote: %s\n", packet->payload);
+            printf("\n");
+            destroy_packet(packet);
+            ret = 0;
             break;
         }
         else
@@ -87,12 +81,7 @@ void processInput(const char *input, int sockfd)
             break;
         }
     case CMD_LIST_SERVER:
-        if (argCount > 1)
-        {
-            perror("\nERROR: LIST_SERVER don't expects any argument.\n");
-            break;
-        }
-        else
+        if (argCount == 1)
         {
             packet_t* packet = createPacket(type_packet, 0, NULL);
             // SEND COMMAND LIST_SERVER
@@ -100,15 +89,16 @@ void processInput(const char *input, int sockfd)
             printf("Tamanho do pacote: %d\n", packet->length_payload);
             printf("Conteúdo do pacote: %s\n", packet->payload);
             destroy_packet(packet);
-            break;
-        }
-    case CMD_LIST_CLIENT:
-        if (argCount > 1)
-        {
-            perror("\nERROR: LIST_CLIENT don't expects any argument.\n");
+            ret = 0;
             break;
         }
         else
+        {
+            perror("\nERROR: LIST_SERVER don't expects any argument.\n");
+            break;
+        }
+    case CMD_LIST_CLIENT:
+        if (argCount == 1)
         {
             packet_t* packet = createPacket(type_packet, 0, NULL);
             // SEND COMMAND LIST_CLIENT
@@ -116,15 +106,16 @@ void processInput(const char *input, int sockfd)
             printf("Tamanho do pacote: %d\n", packet->length_payload);
             printf("Conteúdo do pacote: %s\n", packet->payload);
             destroy_packet(packet);
-            break;
-        }
-    case CMD_EXIT:
-        if (argCount > 1)
-        {
-            perror("\nERROR: EXIT don't expects any argument.\n");
+            ret = 0;
             break;
         }
         else
+        {
+            perror("\nERROR: LIST_CLIENT don't expects any argument.\n");
+            break;
+        }
+    case CMD_EXIT:
+        if (argCount == 1)
         {
             packet_t* packet = createPacket(type_packet, 0, NULL);
             // SEND COMMAND EXIT
@@ -132,6 +123,12 @@ void processInput(const char *input, int sockfd)
             printf("Tamanho do pacote: %d\n", packet->length_payload);
             printf("Conteúdo do pacote: %s\n", packet->payload);
             destroy_packet(packet);
+            ret = 0;
+            break;
+        }
+        else
+        {
+            perror("\nERROR: EXIT don't expects any argument.\n");
             break;
         }
     default:
@@ -139,7 +136,7 @@ void processInput(const char *input, int sockfd)
         break;
     }
 
-    return 0;
+    return ret;
 }
 
 // Cria um pacote simples

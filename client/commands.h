@@ -2,7 +2,7 @@
 #define COMMANDS_H
 #include <unistd.h>
 #include <sys/select.h>
-#include <../commons/commons.h>
+#include "../commons/commons.h"
 
 #define CLIENT_FILE_PATH "./clientFiles/"
 #define READ_TIMEOUT 10

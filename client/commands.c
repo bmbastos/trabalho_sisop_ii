@@ -185,7 +185,7 @@ int send_cmd_to_socket_no_args(int socket, const char *command)
     return 0;
 }
 
-void close_connection(int sockfd)
+void exit_connection(int sockfd)
 {
     if (close(sockfd) == -1)
     {
