@@ -29,6 +29,9 @@ int setupSocket(int *sockfd)
         return -1;
     }
 
+    if (setsockopt(*sockfd, SOL_SOCKET, SO_REUSEADDR, &(int){1}, sizeof(int)) < 0)
+        perror("setsockopt(SO_REUSEADDR) failed");
+
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_port = htons(PORT);
     serv_addr.sin_addr.s_addr = INADDR_ANY;
@@ -151,9 +154,6 @@ void *handleInput(void *arg)
     //     return (void *)0;
     // }
 
-    // close(data->socket);
-    // free(data);
-    // return (void *)0;
 }
 
 int read_packet(int socket, packet_t *buffer) {

@@ -2,91 +2,99 @@
 #include "./interface.h"
 #include <sys/select.h>
 
-void upload_file(const char *filename, int socket)
+int upload_file(const char *filename, int socket)
 {
-    // if (send_packet(socket, "upload", filename))
-    // {
-    //     perror("Error writing to socket");
-    //     return;
-    // }
+    packet_t* packet = create_packet(CMD_UPLOAD, filename, strlen(filename));
+
+    if (send_packet_to_socket(socket, packet) < 0)
+    {
+        perror("Error writing to socket");
+        return ERROR;
+    }
     perror("Command to be implemented\n");
 }
 
-void download_file(const char *filename, int sockfd)
+int download_file(const char *filename, int socket)
 {
-    // if (send_packet(sockfd, "download", filename))
-    // {
-    //     perror("Error writing to socket");
-    //     return;
-    // }
+    packet_t* packet = create_packet(CMD_DOWNLOAD, filename, strlen(filename));
 
-    // long file_size;
-    // if (receive_data(sockfd, &file_size, sizeof(file_size), 10) < 0)
-    // {
-    //     fprintf(stderr, "Failed to receive file size\n");
-    //     return;
-    // }
+    if (send_packet_to_socket(socket, packet))
+    {
+        perror("Error writing to socket");
+        return ERROR;
+    }
+
+    long file_size;
+    if (receive_data(socket, &file_size, sizeof(file_size), 10) < 0)
+    {
+        fprintf(stderr, "Failed to receive file size\n");
+        return ERROR;
+    }
 
     // char file_path[270];
     // snprintf(file_path, sizeof(file_path), "%s%s", CLIENT_FILE_PATH, filename);
 
-    // FILE *received_file = fopen(file_path, "wb");
-    // if (received_file == NULL)
-    // {
-    //     perror("Error opening local file");
-    //     return;
-    // }
+    FILE *received_file = fopen(file_path, "wb");
+    if (received_file == NULL)
+    {
+        perror("Error opening local file");
+        return ERROR;
+    }
 
-    // char buffer[BUFFER_SIZE];
-    // while (file_size > 0)
-    // {
-    //     int bytes_received = receive_data(sockfd, buffer, file_size, READ_TIMEOUT);
-    //     if (bytes_received < 0)
-    //     {
-    //         fclose(received_file);
-    //         return;
-    //     }
+    char buffer[BUFFER_SIZE];
+    while (file_size > 0)
+    {
+        int bytes_received = receive_data(socket, buffer, file_size, READ_TIMEOUT);
+        if (bytes_received < 0)
+        {
+            fclose(received_file);
+            return ERROR;
+        }
 
     //     fwrite(buffer, 1, bytes_received, received_file);
     //     file_size -= bytes_received;
     // }
 
-    // if (fclose(received_file) != 0)
-    // {
-    //     perror("Error closing file");
-    // }
-    // else
-    // {
-    //     printf("File received from server.\n");
-    // }
-    perror("Command to be implemented\n");
-}
-
-void delete_file(const char *filename, int socket)
-{
-    packet_t* packet = createPacket(CMD_DELETE, (uint32_t)strlen(filename), filename);
-
-    if (send_packet(socket, packet) < 0)
+    if (fclose(received_file) != 0)
     {
-        perror("Error writing to socket");
-        return;
+        perror("Error closing file");
     }
-    destroy_packet(packet);
+    else
+    {
+        printf("File received from server.\n");
+    }
+
+    return 0;
 }
 
-void list_server(int socket)
+int delete_file(const char *filename, int socket)
 {
-    if (send_packet_no_args(socket, "list_server"))
+    packet_t* packet = create_packet(CMD_DELETE, filename, strlen(filename));
+
+    if (send_packet_to_socket(socket, packet) < 0)
     {
         perror("Error writing to socket");
-        return;
+        return ERROR;
+    }
+
+    return 0;
+}
+
+int list_server(int socket)
+{
+    packet_t* packet = create_packet(CMD_LIST_SERVER, NULL, 0);
+
+    if (send_packet_to_socket(socket, packet) < 0)
+    {
+        perror("Error writing to socket");
+        return ERROR;
     }
 
     long file_list_size;
     if (receive_data(socket, &file_list_size, sizeof(file_list_size), 10) < 0)
     {
         fprintf(stderr, "Erro ao receber o tamanho da lista.\n");
-        return;
+        return ERROR;
     }
 
     char file_list[2040];
@@ -102,29 +110,38 @@ void list_server(int socket)
     }
 
     printf("%s\n", file_list);
+    return 0;
 }
 
-void list_client(int socket)
+int list_client(int socket)
 {
-    if (send_packet_no_args(socket, "list_client"))
+    packet_t* packet = create_packet(CMD_LIST_CLIENT, NULL, 0);
+
+    if (send_packet_to_socket(socket, packet) < 0)
     {
         perror("Error writing to socket");
-        return;
+        return ERROR;
     }
+
     perror("Command to be implemented\n");
+    return 0;
 }
 
-void get_sync_dir(int socket)
+int get_sync_dir(int socket)
 {
-    if (send_packet_no_args(socket, "get_sync_dir"))
+    packet_t* packet = create_packet(CMD_GET_SYNC_DIR, NULL, 0);
+
+    if (send_packet_to_socket(socket, packet) < 0)
     {
         perror("Error writing to socket");
-        return;
+        return ERROR;
     }
+
     perror("Command to be implemented\n");
+    return 0;
 }
 
-int receive_data(int sockfd, void *buffer, size_t length, int timeout_sec)
+int receive_data(int socket, void *buffer, size_t length, int timeout_sec)
 {
     fd_set fds;
     struct timeval timeout;
@@ -134,12 +151,12 @@ int receive_data(int sockfd, void *buffer, size_t length, int timeout_sec)
     while (total_received < length)
     {
         FD_ZERO(&fds);
-        FD_SET(sockfd, &fds);
+        FD_SET(socket, &fds);
 
         timeout.tv_sec = timeout_sec;
         timeout.tv_usec = 0;
 
-        int ret = select(sockfd + 1, &fds, NULL, NULL, &timeout);
+        int ret = select(socket + 1, &fds, NULL, NULL, &timeout);
 
         if (ret < 0)
         {
@@ -152,7 +169,7 @@ int receive_data(int sockfd, void *buffer, size_t length, int timeout_sec)
             return -1;
         }
 
-        received = read(sockfd, buffer + total_received, length - total_received);
+        received = read(socket, buffer + total_received, length - total_received);
 
         if (received < 0)
         {
@@ -164,26 +181,4 @@ int receive_data(int sockfd, void *buffer, size_t length, int timeout_sec)
     }
 
     return total_received;
-}
-
-int send_packet_no_args(int socket, const char *command)
-{
-    if (write(socket, command, strlen(command)) < 0)
-    {
-        perror("Error writing to socket");
-        return -1;
-    }
-    return 0;
-}
-
-void exit_connection(int sockfd)
-{
-    if (close(sockfd) == -1)
-    {
-        perror("Error closing socket");
-    }
-    else
-    {
-        printf("Connection closed successfully.\n");
-    }
 }
