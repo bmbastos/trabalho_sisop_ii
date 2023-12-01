@@ -12,7 +12,7 @@
 
 typedef struct
 {
-    char command[50];
+    type_packet_t command;
     char argument[50];
     char userpath[50];
     int socket;
@@ -55,98 +55,145 @@ void *handleInput(void *arg)
     thread_data_t *data = (thread_data_t *)arg;
     int n;
 
-    char cmd[50];
-    strcpy(cmd, data->command);
+    switch(data->command){
+        case CMD_DELETE:
+            n = delete_file(data->socket, data->argument, data->userpath);
 
-    if (is_equal(cmd, "download"))
-    {
-        n = send_file(data->socket, data->argument, data->userpath);
+            if (n < 0)
+            {
+                perror("ERROR on delete command\n");
+                return (void *)-1;
+            }
 
-        if (n < 0)
-        {
-            perror("ERROR on download command\n");
-            return (void *)-1;
-        }
-
-        printf("File %s sent successfully.\n", data->argument);
+            printf("File %s deleted successfully.\n", data->argument);
+            break;
+        default:
+            perror("\nERROR: Command not defined.\n");
+            break;
     }
-    else if (is_equal(cmd, "upload"))
-    {
-        n = receive_file(data->socket, data->argument);
 
-        if (n < 0)
-        {
-            perror("ERROR on upload command\n");
-            return (void *)-1;
-        }
+    // if (is_equal(cmd, "download"))
+    // {
+    //     n = send_file(data->socket, data->argument, data->userpath);
 
-        printf("File %s sent successfully.\n", data->argument);
-    }
-    else if (is_equal(cmd, "delete"))
-    {
-        n = delete_file(data->socket, data->argument, data->userpath);
+    //     if (n < 0)
+    //     {
+    //         perror("ERROR on download command\n");
+    //         return (void *)-1;
+    //     }
 
-        if (n < 0)
-        {
-            perror("ERROR on delete command\n");
-            return (void *)-1;
-        }
+    //     printf("File %s sent successfully.\n", data->argument);
+    // }
+    // else if (is_equal(cmd, "upload"))
+    // {
+    //     n = receive_file(data->socket, data->argument);
 
-        printf("File %s deleted successfully.\n", data->argument);
-    }
-    else if (is_equal(cmd, "list_server"))
-    {
-        n = list_server(data->socket, data->userpath);
+    //     if (n < 0)
+    //     {
+    //         perror("ERROR on upload command\n");
+    //         return (void *)-1;
+    //     }
 
-        if (n < 0)
-        {
-            perror("ERROR on list_server command\n");
-            return (void *)-1;
-        }
+    //     printf("File %s sent successfully.\n", data->argument);
+    // }
+    // else if (is_equal(cmd, "delete"))
+    // {
+    //     n = delete_file(data->socket, data->argument, data->userpath);
 
-        printf("Server list sent successfully.\n");
-    }
-    else if (is_equal(cmd, "get_sync_dir"))
-    {
-        n = get_sync_dir(data->socket);
+    //     if (n < 0)
+    //     {
+    //         perror("ERROR on delete command\n");
+    //         return (void *)-1;
+    //     }
 
-        if (n < 0)
-        {
-            perror("ERROR on get_sync_dir command\n");
-            return (void *)-1;
-        }
+    //     printf("File %s deleted successfully.\n", data->argument);
+    // }
+    // else if (is_equal(cmd, "list_server"))
+    // {
+    //     n = list_server(data->socket, data->userpath);
 
-        printf("Synchronization successfully.\n");
-    }
-    else if (is_equal(cmd, "exit"))
-    {
-        n = close(data->socket);
+    //     if (n < 0)
+    //     {
+    //         perror("ERROR on list_server command\n");
+    //         return (void *)-1;
+    //     }
 
-        if (n < 0)
-        {
-            perror("ERROR on exit command\n");
-            return (void *)-1;
-        }
+    //     printf("Server list sent successfully.\n");
+    // }
+    // else if (is_equal(cmd, "get_sync_dir"))
+    // {
+    //     n = get_sync_dir(data->socket);
 
-        printf("Exited connection successfully.\n");
-    }
-    else
-    {
-        printf("Invalid command received.\n");
+    //     if (n < 0)
+    //     {
+    //         perror("ERROR on get_sync_dir command\n");
+    //         return (void *)-1;
+    //     }
 
-        return (void *)0;
-    }
+    //     printf("Synchronization successfully.\n");
+    // }
+    // else if (is_equal(cmd, "exit"))
+    // {
+    //     n = close(data->socket);
+
+    //     if (n < 0)
+    //     {
+    //         perror("ERROR on exit command\n");
+    //         return (void *)-1;
+    //     }
+
+    //     printf("Exited connection successfully.\n");
+    // }
+    // else
+    // {
+    //     printf("Invalid command received.\n");
+
+    //     return (void *)0;
+    // }
 
     // close(data->socket);
     // free(data);
     // return (void *)0;
 }
 
+int read_packet(int socket, packet_t *buffer) {
+    // Ler o tipo do pacote
+    if (read(socket, &(buffer->type), sizeof(type_packet_t)) < 0) {
+        perror("Error reading packet type from socket");
+        return -1;
+    }
+
+    // Ler o comprimento do payload
+    if (read(socket, &(buffer->length_payload), sizeof(uint32_t)) < 0) {
+        perror("Error reading payload length from socket");
+        return -1;
+    }
+
+    // Alocar memória para o payload
+    if (buffer->length_payload > 0) {
+        buffer->payload = malloc(buffer->length_payload + 1);
+        if (buffer->payload == NULL) {
+            perror("Error allocating memory for packet payload");
+            return -1;
+        }
+
+        // Ler o payload
+        if (read(socket, buffer->payload, buffer->length_payload) < 0) {
+            perror("Error reading payload from socket");
+            free(buffer->payload);
+            return -1;
+        }
+        buffer->payload[buffer->length_payload] = '\0';
+    }
+
+    return 0;
+}
+
 int main(int argc, char *argv[])
 {
     int sockfd, newsockfd, n;
     socklen_t clilen;
-    char buffer[256];
+    packet_t buffer;
     struct sockaddr_in cli_addr;
     int folderChecked = 0;
 
@@ -167,20 +214,22 @@ int main(int argc, char *argv[])
         }
 
         while(1) {
-            bzero(buffer, 256);
-            n = read(newsockfd, buffer, 256);
+            bzero(&buffer, sizeof(packet_t));
 
-            if (n < 0)
-            {
-                perror("ERROR reading command from socket\n");
-                continue;
+            if (read_packet(newsockfd, &buffer) < 0) {
+                perror("Error reading packet from socket\n");
+                break;
             }
 
-            char username[50];
-            strcpy(username, buffer);
-            char user_dir[100];
+            printf("buffer type is = %d\n", buffer.type);
+            printf("buffer payload size is = %d\n", buffer.length_payload);
+            printf("buffer payload is = %s\n", buffer.payload);
+
+            char username[1024];
+            char user_dir[1050];
 
             if(folderChecked == 0) {
+                strcpy(username, buffer.payload);
                 snprintf(user_dir, sizeof(user_dir), "%s%s", SYNC_DIR_BASE_PATH, username);
                 if (mkdir(user_dir, 0777) == -1) {
                     printf("Pasta %s já existe.\n", user_dir);
@@ -189,6 +238,7 @@ int main(int argc, char *argv[])
                 }
 
                 folderChecked = 1;
+                continue;
             }
 
             thread_data_t *data = malloc(sizeof(thread_data_t));
@@ -198,11 +248,20 @@ int main(int argc, char *argv[])
                 continue;
             }
 
-            sscanf(buffer, "%s %s", data->command, data->argument);
+            if (data->argument == NULL)
+            {
+                perror("Error");
+                free(data);
+                continue;
+            }
+
+            strncpy(data->argument, buffer.payload, buffer.length_payload);
+
+            data->command = buffer.type;
             data->socket = newsockfd;
             strcpy(data->userpath, user_dir);
 
-            printf("Received command %s %s\n", data->command, data->argument);
+            printf("\n@ Received command %d %s:", data->command, data->argument);
 
             pthread_t thread;
             if (pthread_create(&thread, NULL, handleInput, (void *)data) < 0)

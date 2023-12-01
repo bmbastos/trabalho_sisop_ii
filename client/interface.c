@@ -1,6 +1,6 @@
 #include "interface.h"
 
-int processInput(const char *input, int sockfd)
+int processInput(const char *input, void *sockfd)
 {
     // Inicialização
     int ret = 1;
@@ -65,14 +65,7 @@ int processInput(const char *input, int sockfd)
     case CMD_DELETE:
         if (argCount == 2)
         {
-            packet_t* packet = createPacket(type_packet, (uint32_t) strlen(arguments[1]), arguments[1]);
-            // SEND COMMAND DELETE
-            printf("Tipo do pacote: DELETE\n");
-            printf("Tamanho do pacote: %d\n", packet->length_payload);
-            printf("Conteúdo do pacote: %s\n", packet->payload);
-            printf("\n");
-            destroy_packet(packet);
-            ret = 0;
+            delete_file(arguments[1], *((int *)sockfd));
             break;
         }
         else
@@ -136,13 +129,14 @@ int processInput(const char *input, int sockfd)
         break;
     }
 
-    return ret;
+    return 0;
 }
 
 // Cria um pacote simples
 packet_t *createPacket(type_packet_t type_packet, uint32_t length_of_payload, const char* payload)
 {
-    packet_t *packet = (packet_t *)calloc(1, sizeof(packet_t));
+    packet_t *packet = (packet_t *)malloc(sizeof(packet_t));
+
     if (packet == NULL)
     {
         perror("Error creating packet\n");
@@ -151,15 +145,18 @@ packet_t *createPacket(type_packet_t type_packet, uint32_t length_of_payload, co
     {
         packet->type = type_packet;
         packet->length_payload = length_of_payload;
-        if (payload == NULL)
-        {
-            packet->payload = NULL;
-        }
-        else
-        {
+
+        if(payload != NULL) {
             packet->payload = strdup(payload);
+            if (packet->payload == NULL) {
+                perror("Error allocating memory for payload\n");
+                free(packet);
+                free(packet->payload);
+                return NULL;
+            }
         }
     }
+    
     return packet;
 }
 

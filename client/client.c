@@ -8,6 +8,7 @@
 #include <netdb.h> 
 #include <pthread.h>
 #include "../commons/commons.h"
+#include "../client/commands.h"
 #include "./interface.h"
 
 #define PORT 4000
@@ -55,17 +56,31 @@ int main(int argc, char *argv[]) {
     if (argc < 3) {
         printUsage();
     }
-
     const char *username = argv[1];
+
     struct hostent *server = getServerHost(argv[2]);
-
-    struct sockaddr_in serv_addr = initializeServerAddress(server);
-
-    int sockfd = createSocket();
-    connectToServer(sockfd, serv_addr);
     
-    if(write(sockfd, username, strlen(username)) < 0) {
+    struct sockaddr_in serv_addr = initializeServerAddress(server);
+    
+    int sockfd = createSocket();
+    
+    connectToServer(sockfd, serv_addr);
+
+    char *username_payload = strdup(username);
+
+    if (username_payload == NULL) {
+        perror("Error ao criar username payload.");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("the username payload is: %s\n", username_payload);
+
+    packet_t* packetUsername = createPacket(CMD_LOGIN, (uint32_t)strlen(username), username_payload);
+
+    if (send_packet(sockfd, packetUsername) < 0) {
         perror("Error ao enviar username para o servidor.");
+        free(username_payload);
+        destroy_packet(packetUsername);
         exit(EXIT_FAILURE);
     }
 
@@ -73,12 +88,17 @@ int main(int argc, char *argv[]) {
 
     if(pthread_create(&userInterfaceThread, NULL, userInterface, (void *) &sockfd)) {
         fprintf(stderr, "Erro ao criar thread.\n");
+        free(username_payload);
+        destroy_packet(packetUsername);
         exit(EXIT_FAILURE);
     }
 
     pthread_join(userInterfaceThread, NULL);
 
     close(sockfd);
-    
+
+    free(username_payload);
+    destroy_packet(packetUsername);
+
     return 0;
 }

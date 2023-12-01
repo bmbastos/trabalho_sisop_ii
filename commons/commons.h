@@ -9,6 +9,7 @@
 
 typedef enum {
     DATA,
+    CMD_LOGIN,
     CMD_UPLOAD,
     CMD_DOWNLOAD,
     CMD_DELETE,
@@ -25,5 +26,7 @@ typedef struct packet {
 
 int is_equal(const char *str1, const char *str2);
 void destroy_packet(packet_t *packet);
+
+int send_packet(int socket, const packet_t *packet);
 
 #endif

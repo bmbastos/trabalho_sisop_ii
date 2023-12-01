@@ -18,7 +18,6 @@ void exit_connection(int socket);
 
 // COMANDOS AUXILIARES
 int receive_data(int sockfd, void *buffer, size_t length, int timeout_sec);
-int send_cmd_to_socket_no_args(int socket, const char *command);
-int send_cmd_to_socket(int socket, const char *command, const char *argument);
+int send_packet_no_args(int socket, const char *command);
 
 #endif
