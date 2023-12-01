@@ -98,6 +98,51 @@ int send_packet_to_socket(int socket, packet_t* packet)
     return 0;
 }
 
+int receive_packet_from_socket(int socket, packet_t *packet)
+{
+    if (!packet)
+    {
+        perror("Packet pointer is NULL");
+        return -1;
+    }
+
+    // Obtem o tipo do pacote
+    if (read(socket, &(packet->type), sizeof(packet->type)) <= 0)
+    {
+        perror("Error reading packet type from socket");
+        return -1;
+    }
+
+    // Obtem o tipo do tamanho do payload
+    if (read(socket, &(packet->length_payload), sizeof(packet->length_payload)) <= 0)
+    {
+        perror("Error reading payload length from socket");
+        return -1;
+    }
+
+    // Obtem o payload
+    packet->payload = NULL;
+    if (packet->length_payload > 0)
+    {
+        packet->payload = malloc(packet->length_payload);
+        if (!packet->payload)
+        {
+            perror("Failed to allocate memory for payload");
+            return -1;
+        }
+
+        if (read(socket, packet->payload, packet->length_payload) <= 0)
+        {
+            perror("Error reading payload from socket");
+            free(packet->payload);
+            packet->payload = NULL;
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
 int is_equal(const char *str1, const char *str2)
 {
     if (strcmp(str1, str2) == 0)

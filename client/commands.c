@@ -94,28 +94,20 @@ int list_server(int socket)
         perror("Error writing to socket");
         return ERROR;
     }
+    
+    packet_t *packetFileListBuffer = malloc(sizeof(packet_t));
 
-    long file_list_size;
-    if (receive_data(socket, &file_list_size, sizeof(file_list_size), 10) < 0)
+    if (receive_packet_from_socket(socket, packetFileListBuffer) < 0)
     {
-        fprintf(stderr, "Erro ao receber o tamanho da lista.\n");
-        return ERROR;
+        printf("Error reading packet from socket. Closing connection\n");
+        close(socket);
     }
 
-    char file_list[2040];
+    char *fileList = (char *)malloc(packetFileListBuffer->length_payload + 1);
 
-    while (file_list_size > 0)
-    {
-        int bytes_received = receive_data(socket, file_list, sizeof(file_list), READ_TIMEOUT);
-        if (bytes_received < 0)
-        {
-            break;
-        }
+    strncpy(fileList, packetFileListBuffer->payload, packetFileListBuffer->length_payload);
 
-        file_list_size -= bytes_received;
-    }
-
-    printf("%s\n", file_list);
+    printf("%s\n", fileList);
     return 0;
 }
 

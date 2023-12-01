@@ -118,8 +118,11 @@ int list_server(int client_socket, const char *userpath) {
     printf("(server side debug) file_list: %s\n", file_list);
     closedir(dir);
     
-    if (write(client_socket, file_list, strlen(file_list)) < 0) {
-        perror("Erro ao enviar lista de arquivos.");
+    packet_t* packetFileList = create_packet(CMD_LIST_SERVER, file_list, strlen(file_list));
+
+    if (send_packet_to_socket(client_socket, packetFileList) < 0) {
+        perror("Error ao enviar username para o servidor.");
+        destroy_packet(packetFileList);
         return -1;
     }
 
