@@ -19,6 +19,14 @@ typedef struct
     int socket;
 } thread_data_t;
 
+typedef struct list_of_users
+{
+    char* username;
+    int connections;
+    int socket[2];
+    struct list_of_users *next;
+} list_users_t;
+
 int setupSocket(int *sockfd)
 {
     struct sockaddr_in serv_addr;
@@ -265,6 +273,142 @@ void *handle_new_client_connection(void *args)
 
     free(packet_buffer);
     return (void *)0;
+}
+
+list_users_t *create_new_user(char *user_name, int user_socket)
+{
+    list_users_t *new_user = (list_users_t *)calloc(1, sizeof(list_users_t));
+    if (new_user == NULL)
+    {
+        perror("ERROR creating user\n");
+        exit(EXIT_FAILURE);
+    }
+
+    new_user->username = strdup(user_name);
+    if (new_user->username == NULL)
+    {
+        perror("ERROR duplicating username\n");
+        free(new_user);
+        exit(EXIT_FAILURE);
+    }
+
+    new_user->connections = 1;
+    new_user->socket[0] = user_socket;
+    new_user->socket[1] = 0;
+    new_user->next = NULL;
+
+    return new_user;
+}
+
+list_users_t *insert_new_connection(list_users_t *list, char *username, int user_socket)
+{
+    if (list == NULL) // Lista está vazia: cria um novo usuário
+    {
+        return create_new_user(username, user_socket);
+    }
+    else if (strcmp(username, list->username) == 0) // A cabeça da lista contém o usuário: verifica se existe espaço para conectar
+    {
+        if (list->connections < 2)
+        {
+            if (list->socket[0] == 0){
+                list->connections += 1;
+                list->socket[0] = user_socket;
+            }
+            else 
+            {
+                list->connections += 1;
+                list->socket[1] = user_socket;
+            }
+        }
+        else
+        {
+            printf("Você atingiu o limite de conexões (2)\n");
+        }
+        return list;
+    }
+    else // A cabeça da lista não contém o usuário: continua procurando
+    {
+        list->next = insert_new_connection(list->next, username, user_socket);
+        return list;
+    }
+}
+
+list_users_t *remove_user_connection(list_users_t *list, char *user_name, int user_socket)
+{
+    if (list == NULL)
+    {
+        printf("Lista de usuários vazia.\n");
+        return NULL;
+    }
+
+    list_users_t *current = list;
+    list_users_t *previous = NULL;
+
+    while (current != NULL)
+    {
+        if (strcmp(current->username, user_name) == 0)
+        {
+            // Verifica se a conexão existe para o IP e o Socket fornecidos
+            for (int i = 0; i < current->connections; ++i)
+            {
+                if (current->socket[i] == user_socket)
+                {
+                    // Remove a conexão
+                    current->connections -= 1;
+                    current->socket[i] = 0;
+
+                    // Se não houver mais conexões, remova o usuário da lista
+                    if (current->connections == 0)
+                    {
+                        if (previous == NULL)
+                        {
+                            // O usuário a ser removido é o primeiro da lista
+                            list = current->next;
+                            free(current->username);
+                            free(current);
+                            return list;
+                        }
+                        else
+                        {
+                            // O usuário a ser removido não é o primeiro da lista
+                            previous->next = current->next;
+                            free(current->username);
+                            free(current);
+                            return list;
+                        }
+                    }
+
+                    return list;
+                }
+            }
+        }
+
+        previous = current;
+        current = current->next;
+    }
+
+    printf("Usuário ou conexão não encontrados.\n");
+    return list;
+}
+
+void print_user_list(list_users_t *list)
+{
+    if (list == NULL)
+    {
+        printf("Lista de usuários vazia.\n");
+        return;
+    }
+    
+    printf("Username: %s\n", list->username);
+    printf("Connections: %d\n", list->connections);
+    printf("Socket 1: %d\n", list->socket[0]);
+    printf("Socket 2: %d\n", list->socket[1]);
+    printf("\n");
+
+    if (list->next != NULL)
+    {
+        print_user_list(list->next);
+    }
 }
 
 int main(int argc, char *argv[])
