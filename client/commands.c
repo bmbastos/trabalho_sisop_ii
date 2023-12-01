@@ -25,13 +25,6 @@ int download_file(const char *filename, int socket)
         return ERROR;
     }
 
-    long file_size;
-    if (receive_data(socket, &file_size, sizeof(file_size), 10) < 0)
-    {
-        fprintf(stderr, "Failed to receive file size\n");
-        return ERROR;
-    }
-
     char file_path[270];
     snprintf(file_path, sizeof(file_path), "%s%s", CLIENT_FILE_PATH, filename);
 
@@ -42,26 +35,20 @@ int download_file(const char *filename, int socket)
         return ERROR;
     }
 
-    void *buffer = malloc(file_size);
-    int bytes_received = receive_data(socket, buffer, file_size, READ_TIMEOUT);
-    if (bytes_received <= 0)
-    {
+    packet_t *receivedFilePacket = malloc(sizeof(packet_t));
+    if (receive_packet_from_socket(socket, receivedFilePacket) < 0) {
+        fprintf(stderr, "Failed to receive file packet\n");
         fclose(file_ptr);
         return ERROR;
     }
 
-    
-    int n = fwrite(buffer, file_size, 1, file_ptr);
-    if (n < 0)
-    {
+    if (fwrite(receivedFilePacket->payload, 1, receivedFilePacket->length_payload, file_ptr) != receivedFilePacket->length_payload) {
         perror("Error writing downloaded file locally");
         fclose(file_ptr);
         return ERROR;
-    }
-    else
-    {
+    } else {
         printf("File received successfully from server.\n");
-    }
+    }    
 
     if (fclose(file_ptr) < 0)
     {

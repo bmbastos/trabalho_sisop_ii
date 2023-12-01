@@ -34,14 +34,22 @@ int send_file(int client_socket, const char *filename, const char *filepath)
         return -1;
     }
 
-    send(client_socket, &file_size, sizeof(file_size), 0);
+    packet_t *packet = create_packet(CMD_DOWNLOAD, filename, strlen(filename));
 
-    char buffer[1024];
-    size_t bytes_read;
+    packet->payload = malloc(file_size);
+    packet->length_payload = file_size;
 
-    while ((bytes_read = fread(buffer, 1, sizeof(buffer), file)) > 0)
+    if (fread(packet->payload, 1, file_size, file) != file_size)
     {
-        send(client_socket, buffer, bytes_read, 0);
+        printf("ERROR: Não foi possível ler o arquivo indicado\n");
+        fclose(file);
+        return -1;
+    }
+
+    if (send_packet_to_socket(client_socket, packet) < 0)
+    {
+        perror("Error writing to socket\n");
+        return ERROR;
     }
 
     fclose(file);
