@@ -95,7 +95,7 @@ int list_server(int client_socket, const char *userpath) {
     packet_t* packetFileList = create_packet(CMD_LIST_SERVER, file_list, strlen(file_list));
 
     if (send_packet_to_socket(client_socket, packetFileList) < 0) {
-        perror("Error ao enviar username para o servidor.");
+        perror("Error ao enviar lista de arquivos para o cliente.");
         destroy_packet(packetFileList);
         return -1;
     }

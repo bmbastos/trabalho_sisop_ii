@@ -197,7 +197,7 @@ void get_file_metadata_list(const char *basepath, char *file_list)
     while ((entry = readdir(dir)) != NULL)
     {
         if(strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
-            char file_path[256];
+            char file_path[257];
             snprintf(file_path, sizeof(file_path), "%s/%s", basepath, entry->d_name);
 
             if (stat(file_path, &file_stat) < 0)
