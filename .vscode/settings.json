@@ -4,6 +4,12 @@
         "types.h": "c",
         "commons.h": "c",
         "socket.h": "c",
-        "pthread.h": "c"
+        "pthread.h": "c",
+        "array": "c",
+        "string": "c",
+        "string_view": "c",
+        "vector": "c",
+        "complex": "c",
+        "commands.h": "c"
     }
 }

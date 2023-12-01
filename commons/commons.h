@@ -28,6 +28,8 @@ typedef struct packet {
 } packet_t;
 
 packet_t* create_packet(type_packet_t type, const char* payload, int payload_length);
+const char* get_packet_type_name(type_packet_t type);
+void print_packet(const packet_t* packet);
 int send_packet_to_socket(int socket, packet_t* packet);
 void destroy_packet(packet_t *packet);
 char* clone_string(const char* src);

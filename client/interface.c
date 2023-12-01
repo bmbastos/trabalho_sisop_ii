@@ -66,4 +66,6 @@ void *userInterface(void  *socket_ptr)
             shouldExit = parse_input(input, socket);
         }
     }
+
+    return NULL;
 }

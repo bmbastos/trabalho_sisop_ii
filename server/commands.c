@@ -45,6 +45,8 @@ int send_file(int client_socket, const char *filename, const char *filepath)
     }
 
     fclose(file);
+    printf("%s send successfully\n", filename);
+    
     return 1;
 }
 
@@ -65,6 +67,16 @@ int delete_file(int client_socket, const char *filename, const char *filepath) {
     printf("File %s deleted successfully.\n", filename);
 
     return 1;
+}
+
+int list_client(int socket) {
+    perror("To be implemented");
+    return ERROR;
+}
+
+int receive_data(int socket, packet_t packet) {
+    perror("To be implemented");
+    return ERROR;
 }
 
 int list_server(int client_socket, const char *userpath) {

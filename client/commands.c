@@ -8,10 +8,11 @@ int upload_file(const char *filename, int socket)
 
     if (send_packet_to_socket(socket, packet) < 0)
     {
-        perror("Error writing to socket");
+        perror("Error writing to socket\n");
         return ERROR;
     }
     perror("Command to be implemented\n");
+    return 0;
 }
 
 int download_file(const char *filename, int socket)
@@ -20,7 +21,7 @@ int download_file(const char *filename, int socket)
 
     if (send_packet_to_socket(socket, packet))
     {
-        perror("Error writing to socket");
+        perror("Error writing to socket\n");
         return ERROR;
     }
 
@@ -37,7 +38,7 @@ int download_file(const char *filename, int socket)
     FILE *received_file = fopen(file_path, "wb");
     if (received_file == NULL)
     {
-        perror("Error opening local file");
+        perror("Error opening local file\n");
         return ERROR;
     }
 
@@ -57,7 +58,7 @@ int download_file(const char *filename, int socket)
 
     if (fclose(received_file) != 0)
     {
-        perror("Error closing file");
+        perror("Error closing file\n");
     }
     else
     {
@@ -73,7 +74,7 @@ int delete_file(const char *filename, int socket)
 
     if (send_packet_to_socket(socket, packet) < 0)
     {
-        perror("Error writing to socket");
+        perror("Error writing to socket\n");
         return ERROR;
     }
 
@@ -133,7 +134,7 @@ int get_sync_dir(int socket)
 
     if (send_packet_to_socket(socket, packet) < 0)
     {
-        perror("Error writing to socket");
+        perror("Error writing to socket\n");
         return ERROR;
     }
 
@@ -160,7 +161,7 @@ int receive_data(int socket, void *buffer, size_t length, int timeout_sec)
 
         if (ret < 0)
         {
-            perror("Select error");
+            perror("Select error\n");
             return -1;
         }
         else if (ret == 0)
@@ -173,7 +174,7 @@ int receive_data(int socket, void *buffer, size_t length, int timeout_sec)
 
         if (received < 0)
         {
-            perror("Error reading from socket");
+            perror("Error reading from socket\n");
             return -1;
         }
 
