@@ -22,4 +22,8 @@ type_packet_t tokenizeInput(const char *input, char arguments[MAX_ARGUMENTS][MAX
 int processInput(const char* input, void *sockfd);
 packet_t *createPacket(type_packet_t type_packet, uint32_t length_of_payload, const char* payload);
 
+
+// Auxiliares
+char* clone_string(const char* src);
+
 #endif
