@@ -4,7 +4,7 @@
 
 int upload_file(const char *filename, int socket)
 {
-    packet_t* packet = create_packet(CMD_UPLOAD, filename, strlen(filename));
+    packet_t *packet = create_packet(CMD_UPLOAD, filename, strlen(filename));
 
     if (send_packet_to_socket(socket, packet) < 0)
     {
@@ -17,7 +17,7 @@ int upload_file(const char *filename, int socket)
 
 int download_file(const char *filename, int socket)
 {
-    packet_t* packet = create_packet(CMD_DOWNLOAD, filename, strlen(filename));
+    packet_t *packet = create_packet(CMD_DOWNLOAD, filename, strlen(filename));
 
     if (send_packet_to_socket(socket, packet))
     {
@@ -32,37 +32,41 @@ int download_file(const char *filename, int socket)
         return ERROR;
     }
 
-    // char file_path[270];
-    // snprintf(file_path, sizeof(file_path), "%s%s", CLIENT_FILE_PATH, filename);
+    char file_path[270];
+    snprintf(file_path, sizeof(file_path), "%s%s", CLIENT_FILE_PATH, filename);
 
-    FILE *received_file = fopen(file_path, "wb");
-    if (received_file == NULL)
+    FILE *file_ptr = fopen(file_path, "wb");
+    if (file_ptr == NULL)
     {
         perror("Error opening local file\n");
         return ERROR;
     }
 
-    char buffer[BUFFER_SIZE];
-    while (file_size > 0)
+    void *buffer = malloc(file_size);
+    int bytes_received = receive_data(socket, buffer, file_size, READ_TIMEOUT);
+    if (bytes_received <= 0)
     {
-        int bytes_received = receive_data(socket, buffer, file_size, READ_TIMEOUT);
-        if (bytes_received < 0)
-        {
-            fclose(received_file);
-            return ERROR;
-        }
+        fclose(file_ptr);
+        return ERROR;
+    }
 
-    //     fwrite(buffer, 1, bytes_received, received_file);
-    //     file_size -= bytes_received;
-    // }
-
-    if (fclose(received_file) != 0)
+    
+    int n = fwrite(buffer, file_size, 1, file_ptr);
+    if (n < 0)
     {
-        perror("Error closing file\n");
+        perror("Error writing downloaded file locally");
+        fclose(file_ptr);
+        return ERROR;
     }
     else
     {
-        printf("File received from server.\n");
+        printf("File received successfully from server.\n");
+    }
+
+    if (fclose(file_ptr) < 0)
+    {
+        perror("Error closing file\n");
+        return ERROR;
     }
 
     return 0;
@@ -70,7 +74,7 @@ int download_file(const char *filename, int socket)
 
 int delete_file(const char *filename, int socket)
 {
-    packet_t* packet = create_packet(CMD_DELETE, filename, strlen(filename));
+    packet_t *packet = create_packet(CMD_DELETE, filename, strlen(filename));
 
     if (send_packet_to_socket(socket, packet) < 0)
     {
@@ -83,7 +87,7 @@ int delete_file(const char *filename, int socket)
 
 int list_server(int socket)
 {
-    packet_t* packet = create_packet(CMD_LIST_SERVER, NULL, 0);
+    packet_t *packet = create_packet(CMD_LIST_SERVER, NULL, 0);
 
     if (send_packet_to_socket(socket, packet) < 0)
     {
@@ -100,7 +104,8 @@ int list_server(int socket)
 
     char file_list[2040];
 
-    while (file_list_size > 0) {
+    while (file_list_size > 0)
+    {
         int bytes_received = receive_data(socket, file_list, sizeof(file_list), READ_TIMEOUT);
         if (bytes_received < 0)
         {
@@ -116,7 +121,7 @@ int list_server(int socket)
 
 int list_client(int socket)
 {
-    packet_t* packet = create_packet(CMD_LIST_CLIENT, NULL, 0);
+    packet_t *packet = create_packet(CMD_LIST_CLIENT, NULL, 0);
 
     if (send_packet_to_socket(socket, packet) < 0)
     {
@@ -130,7 +135,7 @@ int list_client(int socket)
 
 int get_sync_dir(int socket)
 {
-    packet_t* packet = create_packet(CMD_GET_SYNC_DIR, NULL, 0);
+    packet_t *packet = create_packet(CMD_GET_SYNC_DIR, NULL, 0);
 
     if (send_packet_to_socket(socket, packet) < 0)
     {

@@ -10,6 +10,8 @@
 #include "../commons/commons.h"
 #include "./commands.h"
 
+#define DIR_FOLDER_PREFIX "sync_dir_"
+
 typedef struct
 {
     packet_t packet;
@@ -52,6 +54,12 @@ int setupSocket(int *sockfd)
     return 0;
 }
 
+int handle_login(int socket, const char *username)
+{
+    perror("Login not implemented");
+    return ERROR;
+}
+
 void *handle_packet(void *data_ptr)
 {
     thread_data_t *data = (thread_data_t *)data_ptr;
@@ -61,6 +69,12 @@ void *handle_packet(void *data_ptr)
 
     switch (cmd)
     {
+    case CMD_LOGIN:
+        if (handle_login(data->socket, packet.payload) < 0)
+        {
+            perror("Error handling client login");
+            return (void *)ERROR;
+        }
     case CMD_UPLOAD:
         if (receive_file(data->socket, packet.payload) < 0)
         {
@@ -111,13 +125,14 @@ void *handle_packet(void *data_ptr)
         }
         break;
     case DATA:
-        if (receive_data(data->socket, packet) < 0) {
+        if (receive_data(data->socket, packet) < 0)
+        {
             perror("Error reciving data from socket");
             return (void *)ERROR;
         }
         break;
     }
-    
+
     return (void *)0;
 }
 
@@ -181,15 +196,85 @@ void create_folder(char username[50])
     }
 }
 
+void *handle_new_client_connection(void *args)
+{
+    int socket = *((int *)args);
+    free(args);
+    char username[50];
+    char path[50];
+    strcpy(path, DIR_FOLDER_PREFIX);
+    int folderChecked = 0;
+    packet_t *packet_buffer = malloc(sizeof(packet_t));
+    if (packet_buffer == NULL)
+    {
+        perror("ERROR allocating memory for packet\n");
+        return (void *)-1;
+    }
+
+    while (1)
+    {
+        bzero(packet_buffer, sizeof(packet_t));
+
+        if (receive_packet_from_socket(socket, packet_buffer) < 0)
+        {
+            printf("Error reading packet from socket. Closing connection\n");
+            close(socket);
+            break;
+        }
+
+        if (folderChecked == 0)
+        {
+            if (packet_buffer->type == CMD_LOGIN)
+            {
+                strcpy(username, packet_buffer->payload);
+                create_folder(username);
+                strcat(path, username);
+                folderChecked = 1;
+                continue;
+            }
+            else
+            {
+                printf("Expected first packet from client to be a CMD_LOGIN\n");
+                continue;
+            }
+        }
+
+        thread_data_t *thread_data = malloc(sizeof(thread_data_t));
+        if (thread_data == NULL)
+        {
+            perror("ERROR allocating memory for thread data\n");
+            continue;
+        }
+
+        thread_data->packet = *packet_buffer;
+        thread_data->socket = socket;
+        strcpy(thread_data->userpath, path);
+
+        printf("Received packet:\n");
+        print_packet(packet_buffer);
+
+        pthread_t thread;
+        if (pthread_create(&thread, NULL, handle_packet, (void *)thread_data) < 0)
+        {
+            perror("ERROR creating thread");
+            continue;
+        }
+
+        pthread_detach(thread);
+    }
+
+    free(packet_buffer);
+    return (void *)0;
+}
+
 int main(int argc, char *argv[])
 {
     int sockfd, newsockfd, n;
     socklen_t clilen;
     packet_t buffer;
     struct sockaddr_in cli_addr;
-    int folderChecked = 0;
 
-    if (setupSocket(&sockfd) != 0)
+    if (setupSocket(&sockfd) < 0)
     {
         exit(EXIT_FAILURE);
     }
@@ -205,66 +290,19 @@ int main(int argc, char *argv[])
             continue;
         }
 
-        while (1)
+        print_socket_info(cli_addr);
+
+        pthread_t thread;
+        int *sock_ptr = malloc(sizeof(int));
+        *sock_ptr = newsockfd;
+        if (pthread_create(&thread, NULL, handle_new_client_connection, sock_ptr) < 0)
         {
-            bzero(buffer, 256);
-            
-            if (folderChecked == 0)
-            {
-                n = read(newsockfd, buffer, 256);
-
-                if (n < 0)
-                {
-                    perror("ERROR reading command from socket\n");
-                    continue;
-                }
-
-                char username[50];
-                strcpy(username, buffer);
-                create_folder(username);
-                folderChecked = 1;
-                continue;
-            }
-
-            packet_t *packet = malloc(sizeof(packet_t));
-            if (packet == NULL)
-            {
-                perror("ERROR allocating memory for packet\n");
-                continue;
-            }
-
-            if (receive_packet_from_socket(newsockfd, packet) < 0) {
-                perror("Error receiving packet from socket\n");
-            }
-
-            thread_data_t *thread_data = malloc(sizeof(thread_data_t));
-            if (thread_data == NULL)
-            {
-                perror("ERROR allocating memory for thread data\n");
-                continue;
-            }
-
-            char path[50] = "sync_dir_eduardo";
-            thread_data->packet = *packet;
-            thread_data->socket = newsockfd;
-            strcpy(thread_data->userpath, path);
-
-            printf("Received packet:\n");
-            print_packet(packet);
-
-            pthread_t thread;
-            if (pthread_create(&thread, NULL, handle_packet, (void *)thread_data) < 0)
-            {
-                perror("ERROR creating thread");
-                free(packet);
-                continue;
-            }
-
-            pthread_detach(thread);
+            perror("ERROR creating thread");
+            continue;
         }
-
-        close(sockfd);
     }
+
+    close(sockfd);
 
     return 0;
 }

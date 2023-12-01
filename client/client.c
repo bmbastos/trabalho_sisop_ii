@@ -74,10 +74,9 @@ int main(int argc, char *argv[]) {
     }
 
     printf("the username payload is: %s\n", username_payload);
+    packet_t* packetUsername = create_packet(CMD_LOGIN, username_payload, strlen(username));
 
-    packet_t* packetUsername = createPacket(CMD_LOGIN, (uint32_t)strlen(username), username_payload);
-
-    if (send_packet(sockfd, packetUsername) < 0) {
+    if (send_packet_to_socket(sockfd, packetUsername) < 0) {
         perror("Error ao enviar username para o servidor.");
         free(username_payload);
         destroy_packet(packetUsername);

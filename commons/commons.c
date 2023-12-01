@@ -15,8 +15,20 @@ packet_t* create_packet(type_packet_t type, const char* payload, int payload_len
     return packet;
 }
 
+void destroy_packet(packet_t* packet) {
+    if (packet != NULL) {
+        if (packet->payload != NULL) {
+            free(packet->payload);
+            packet->payload = NULL;
+        }
+        free(packet);
+    }
+}
+
+
 const char* get_packet_type_name(type_packet_t type) {
     switch (type) {
+        case CMD_LOGIN: return "CMD_LOGIN";
         case DATA: return "DATA";
         case CMD_UPLOAD: return "CMD_UPLOAD";
         case CMD_DOWNLOAD: return "CMD_DOWNLOAD";
@@ -96,6 +108,19 @@ int is_equal(const char *str1, const char *str2)
     {
         return 0;
     }
+}
+
+void print_socket_info(struct sockaddr_in cli_addr) {
+    char client_ip[INET_ADDRSTRLEN];
+
+    if (inet_ntop(AF_INET, &cli_addr.sin_addr, client_ip, INET_ADDRSTRLEN) == NULL) {
+        perror("inet_ntop failed");
+        return;
+    }
+
+    int client_port = ntohs(cli_addr.sin_port);
+
+    printf("New connection established. IP: %s, Port: %d\n", client_ip, client_port);
 }
 
 char* clone_string(const char* src) {
