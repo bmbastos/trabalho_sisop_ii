@@ -40,5 +40,6 @@ char* clone_string(const char* src);
 int is_equal(const char *str1, const char *str2);
 void print_socket_info(struct sockaddr_in cli_addr);
 int send_packet(int socket, const packet_t *packet);
+void get_file_metadata_list(const char *basepath, char *file_list);
 
 #endif

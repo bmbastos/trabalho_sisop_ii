@@ -26,7 +26,7 @@ int download_file(const char *filename, int socket)
     }
 
     char file_path[270];
-    snprintf(file_path, sizeof(file_path), "%s%s", CLIENT_FILE_PATH, filename);
+    snprintf(file_path, sizeof(file_path), "%s/%s", CLIENT_FILE_PATH, filename);
 
     FILE *file_ptr = fopen(file_path, "wb");
     if (file_ptr == NULL)
@@ -100,15 +100,13 @@ int list_server(int socket)
 
 int list_client(int socket)
 {
-    packet_t *packet = create_packet(CMD_LIST_CLIENT, NULL, 0);
+    char file_list[2048] = "";
+    const char *basepath = CLIENT_FILE_PATH;
 
-    if (send_packet_to_socket(socket, packet) < 0)
-    {
-        perror("Error writing to socket");
-        return ERROR;
-    }
+    get_file_metadata_list(basepath, file_list);
 
-    perror("Command to be implemented\n");
+    printf("(CLIENT side debug) file_list client: %s\n", file_list);
+
     return 0;
 }
 

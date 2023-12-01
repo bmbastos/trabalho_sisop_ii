@@ -1,5 +1,7 @@
 #include "commons.h"
-
+#include <dirent.h>
+#include <sys/stat.h>
+#include <time.h>
 
 packet_t* create_packet(type_packet_t type, const char* payload, int payload_length) {
     packet_t* packet = malloc(sizeof(packet_t));
@@ -176,4 +178,49 @@ char* clone_string(const char* src) {
     }
     strcpy(dest, src);
     return dest;
+}
+
+void get_file_metadata_list(const char *basepath, char *file_list)
+{
+    DIR *dir;
+    struct dirent *entry;
+    struct stat file_stat;
+
+    dir = opendir(basepath);
+
+    if (dir == NULL)
+    {
+        perror("Error opening directory");
+        return;
+    }
+
+    while ((entry = readdir(dir)) != NULL)
+    {
+        if(strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
+            char file_path[256];
+            snprintf(file_path, sizeof(file_path), "%s/%s", basepath, entry->d_name);
+
+            if (stat(file_path, &file_stat) < 0)
+            {
+                perror("Error getting file stats");
+                continue;
+            }
+
+            strcat(file_list, "\n#######################################");
+            strcat(file_list, "\nNome: ");
+            strcat(file_list, entry->d_name);
+
+            strcat(file_list, "\n\nModification time: ");
+            strcat(file_list, ctime(&file_stat.st_mtime));
+
+            strcat(file_list, "\nAccess time: ");
+            strcat(file_list, ctime(&file_stat.st_atime));
+
+            strcat(file_list, "\nCreation time: ");
+            strcat(file_list, ctime(&file_stat.st_ctime));
+            strcat(file_list, "#######################################");
+        }
+    }
+
+    closedir(dir);
 }
