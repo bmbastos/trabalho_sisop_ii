@@ -34,10 +34,12 @@ void destroy_packet(packet_t* packet);
 const char* get_packet_type_name(type_packet_t type);
 void print_packet(const packet_t* packet);
 int send_packet_to_socket(int socket, packet_t* packet);
+int receive_packet_from_socket(int socket, packet_t *packet);
 void destroy_packet(packet_t *packet);
 char* clone_string(const char* src);
 int is_equal(const char *str1, const char *str2);
 void print_socket_info(struct sockaddr_in cli_addr);
 int send_packet(int socket, const packet_t *packet);
+void get_file_metadata_list(const char *basepath, char *file_list);
 
 #endif

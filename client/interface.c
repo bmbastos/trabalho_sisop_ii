@@ -21,6 +21,10 @@ int parse_input(char* input, int socket) {
         if (list_server(socket) < 0) {
             perror("Error listing server files");
         }
+    } else if (strcmp(input, "list_client") == 0) {
+        if (list_client() < 0) {
+            perror("Error listing client files");
+        }
     } else if (strcmp(input, "get_sync_dir") == 0) {
         if (get_sync_dir(socket) < 0) {
             perror("Error getting sync dir");

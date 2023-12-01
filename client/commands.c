@@ -25,15 +25,8 @@ int download_file(const char *filename, int socket)
         return ERROR;
     }
 
-    long file_size;
-    if (receive_data(socket, &file_size, sizeof(file_size), 10) < 0)
-    {
-        fprintf(stderr, "Failed to receive file size\n");
-        return ERROR;
-    }
-
     char file_path[270];
-    snprintf(file_path, sizeof(file_path), "%s%s", CLIENT_FILE_PATH, filename);
+    snprintf(file_path, sizeof(file_path), "%s/%s", CLIENT_FILE_PATH, filename);
 
     FILE *file_ptr = fopen(file_path, "wb");
     if (file_ptr == NULL)
@@ -42,26 +35,20 @@ int download_file(const char *filename, int socket)
         return ERROR;
     }
 
-    void *buffer = malloc(file_size);
-    int bytes_received = receive_data(socket, buffer, file_size, READ_TIMEOUT);
-    if (bytes_received <= 0)
-    {
+    packet_t *receivedFilePacket = malloc(sizeof(packet_t));
+    if (receive_packet_from_socket(socket, receivedFilePacket) < 0) {
+        fprintf(stderr, "Failed to receive file packet\n");
         fclose(file_ptr);
         return ERROR;
     }
 
-    
-    int n = fwrite(buffer, file_size, 1, file_ptr);
-    if (n < 0)
-    {
+    if (fwrite(receivedFilePacket->payload, 1, receivedFilePacket->length_payload, file_ptr) != receivedFilePacket->length_payload) {
         perror("Error writing downloaded file locally");
         fclose(file_ptr);
         return ERROR;
-    }
-    else
-    {
+    } else {
         printf("File received successfully from server.\n");
-    }
+    }    
 
     if (fclose(file_ptr) < 0)
     {
@@ -94,42 +81,32 @@ int list_server(int socket)
         perror("Error writing to socket");
         return ERROR;
     }
+    
+    packet_t *packetFileListBuffer = malloc(sizeof(packet_t));
 
-    long file_list_size;
-    if (receive_data(socket, &file_list_size, sizeof(file_list_size), 10) < 0)
+    if (receive_packet_from_socket(socket, packetFileListBuffer) < 0)
     {
-        fprintf(stderr, "Erro ao receber o tamanho da lista.\n");
-        return ERROR;
+        printf("Error reading packet from socket. Closing connection\n");
+        close(socket);
     }
 
-    char file_list[2040];
+    char *fileList = (char *)malloc(packetFileListBuffer->length_payload + 1);
 
-    while (file_list_size > 0)
-    {
-        int bytes_received = receive_data(socket, file_list, sizeof(file_list), READ_TIMEOUT);
-        if (bytes_received < 0)
-        {
-            break;
-        }
+    strncpy(fileList, packetFileListBuffer->payload, packetFileListBuffer->length_payload);
 
-        file_list_size -= bytes_received;
-    }
-
-    printf("%s\n", file_list);
+    printf("%s\n", fileList);
     return 0;
 }
 
 int list_client(int socket)
 {
-    packet_t *packet = create_packet(CMD_LIST_CLIENT, NULL, 0);
+    char file_list[2048] = "";
+    const char *basepath = CLIENT_FILE_PATH;
 
-    if (send_packet_to_socket(socket, packet) < 0)
-    {
-        perror("Error writing to socket");
-        return ERROR;
-    }
+    get_file_metadata_list(basepath, file_list);
 
-    perror("Command to be implemented\n");
+    printf("(CLIENT side debug) file_list client: %s\n", file_list);
+
     return 0;
 }
 
