@@ -38,8 +38,8 @@ void free_user_list(list_users_t *list);
 
 // Funções relacionadas ao servidor
 int setupSocket(int *sockfd);
-void *handle_packet(void *data_ptr);
-int receive_packet_from_socket(int socket, packet_t *packet);
+int handle_packet(thread_data_t *data_ptr);
+packet_t * receive_packet_from_socket(int socket);
 void create_folder(char username[50]);
 void *handle_new_client_connection(void *args);
 
