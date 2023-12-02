@@ -242,9 +242,9 @@ int handle_login(int socket, const char *username)
     return ERROR;
 }
 
-void *handle_packet(void *data_ptr)
+int handle_packet(thread_data_t *data_ptr)
 {
-    thread_data_t *data = (thread_data_t *)data_ptr;
+    thread_data_t *data = data_ptr;
     int n;
     packet_t packet = data->packet;
     type_packet_t cmd = packet.type;
@@ -255,55 +255,55 @@ void *handle_packet(void *data_ptr)
         if (handle_login(data->socket, packet.payload) < 0)
         {
             perror("Error handling client login");
-            return (void *)ERROR;
+            return ERROR;
         }
     case CMD_UPLOAD:
-        if (receive_file(data->socket, packet.payload) < 0)
+        if (receive_file(data->socket, data->userpath, packet.payload) < 0)
         {
             perror("Error receiving file from socket");
-            return (void *)ERROR;
+            return ERROR;
         }
         break;
     case CMD_DOWNLOAD:
         if (send_file(data->socket, packet.payload, data->userpath) < 0)
         {
             perror("Error sending file to socket");
-            return (void *)ERROR;
+            return ERROR;
         }
         break;
     case CMD_DELETE:
         if (delete_file(data->socket, packet.payload, data->userpath) < 0)
         {
             perror("Error deleting file");
-            return (void *)ERROR;
+            return ERROR;
         }
         break;
     case CMD_LIST_SERVER:
         if (list_server(data->socket, data->userpath) < 0)
         {
             perror("Error on list server");
-            return (void *)ERROR;
+            return ERROR;
         }
         break;
     case CMD_LIST_CLIENT:
         if (list_client(data->socket) < 0)
         {
             perror("Error sending list of clients");
-            return (void *)ERROR;
+            return ERROR;
         }
         break;
     case CMD_GET_SYNC_DIR:
         if (get_sync_dir(data->socket) < 0)
         {
             perror("Error sending sync dir");
-            return (void *)ERROR;
+            return ERROR;
         }
         break;
     case CMD_EXIT:
         if (close(data->socket) < 0)
         {
             perror("Error closing socket");
-            return (void *)ERROR;
+            return ERROR;
         }
         users = remove_user_connection(users, data->userpath, data->socket); // Verificar se seria assim a remoção
         break;
@@ -311,12 +311,12 @@ void *handle_packet(void *data_ptr)
         if (receive_data(data->socket, packet) < 0)
         {
             perror("Error reciving data from socket");
-            return (void *)ERROR;
+            return ERROR;
         }
         break;
     }
 
-    return (void *)0;
+    return 0;
 }
 
 void create_folder(char username[50])
@@ -346,14 +346,15 @@ void *handle_new_client_connection(void *args)
     if (packet_buffer == NULL)
     {
         perror("ERROR allocating memory for packet\n");
-        return (void *)-1;
+        return (void*)-1;
     }
 
     while (1)
     {
         bzero(packet_buffer, sizeof(packet_t));
+        packet_buffer = receive_packet_from_socket(socket);
 
-        if (receive_packet_from_socket(socket, packet_buffer) < 0)
+        if (!packet_buffer)
         {
             printf("Error reading packet from socket. Closing connection\n");
             close(socket);
@@ -395,18 +396,14 @@ void *handle_new_client_connection(void *args)
         printf("Received packet:\n");
         print_packet(packet_buffer);
 
-        pthread_t thread;
-        if (pthread_create(&thread, NULL, handle_packet, (void *)thread_data) < 0)
+        if (handle_packet(thread_data) < 0)
         {
-            perror("ERROR creating thread");
-            continue;
+            perror("Error handling packet received");
         }
-
-        pthread_detach(thread);
     }
 
     free(packet_buffer);
-    return (void *)0;
+    return (void*)0;
 }
 
 // =============================================================================== MAIN ======================================================================

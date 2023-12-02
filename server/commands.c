@@ -51,20 +51,50 @@ int send_file(int client_socket, const char *filename, const char *filepath)
 
     fclose(file);
     printf("%s send successfully\n", filename);
-    
+
     return 1;
 }
 
-int receive_file(int client_socket, const char *filename) {
-    perror("To be done\n");
-    return -1;
+int receive_file(int client_socket, const char *user, const char *filename)
+{
+    printf("Receiving data\n");
+    const packet_t *data_packet = receive_packet_from_socket(client_socket);
+    if (data_packet == NULL || data_packet->length_payload == 0 || data_packet->type != DATA)
+    {
+        perror("Failed to receive DATA package.");
+        return ERROR;
+    }
+
+    char filepath[100];
+    snprintf(filepath, sizeof(filepath), "%s/%s", user, filename);
+    printf("path: %s\n", filepath);
+    FILE *file = fopen(filepath, "wb");
+    if (!file) {
+        perror("Failed to open file for writing");
+        return ERROR;
+    }
+
+    // Write the payload to the file
+    size_t b_written = fwrite(data_packet->payload, 1, data_packet->length_payload, file);
+    if (b_written != data_packet->length_payload) {
+        perror("Failed to write the complete payload to the file");
+        fclose(file);
+        return ERROR;
+    }
+
+    fclose(file);
+
+    printf("File received and saved successfully\n");
+    return 0;
 }
 
-int delete_file(int client_socket, const char *filename, const char *filepath) {
+int delete_file(int client_socket, const char *filename, const char *filepath)
+{
     char file_path[256];
     snprintf(file_path, sizeof(file_path), "%s/%s", filepath, filename);
 
-    if (remove(file_path) != 0) {
+    if (remove(file_path) != 0)
+    {
         perror("Error deleting file");
         return -1;
     }
@@ -74,27 +104,31 @@ int delete_file(int client_socket, const char *filename, const char *filepath) {
     return 1;
 }
 
-int list_client(int socket) {
+int list_client(int socket)
+{
     perror("To be implemented");
     return ERROR;
 }
 
-int receive_data(int socket, packet_t packet) {
+int receive_data(int socket, packet_t packet)
+{
     perror("To be implemented");
     return ERROR;
 }
 
-int list_server(int client_socket, const char *userpath) {
+int list_server(int client_socket, const char *userpath)
+{
     char file_list[2048] = "";
     const char *basepath = userpath;
 
     get_file_metadata_list(basepath, file_list);
-    
-    printf("(server side debug) file_list: %s\n", file_list);
-    
-    packet_t* packetFileList = create_packet(CMD_LIST_SERVER, file_list, strlen(file_list));
 
-    if (send_packet_to_socket(client_socket, packetFileList) < 0) {
+    printf("(server side debug) file_list: %s\n", file_list);
+
+    packet_t *packetFileList = create_packet(CMD_LIST_SERVER, file_list, strlen(file_list));
+
+    if (send_packet_to_socket(client_socket, packetFileList) < 0)
+    {
         perror("Error ao enviar lista de arquivos para o cliente.");
         destroy_packet(packetFileList);
         return -1;
@@ -103,7 +137,8 @@ int list_server(int client_socket, const char *userpath) {
     return 0;
 }
 
-int get_sync_dir(int client_socket) {
+int get_sync_dir(int client_socket)
+{
     perror("To be done\n");
     return -1;
 }

@@ -100,29 +100,32 @@ int send_packet_to_socket(int socket, packet_t* packet)
     return 0;
 }
 
-int receive_packet_from_socket(int socket, packet_t *packet)
+packet_t* receive_packet_from_socket(int socket)
 {
+    packet_t *packet = malloc(sizeof(packet_t));
     if (!packet)
     {
-        perror("Packet pointer is NULL");
-        return -1;
+        perror("Failed to allocate memory for packet");
+        return NULL;
     }
 
-    // Obtem o tipo do pacote
+    // Read the type of the packet
     if (read(socket, &(packet->type), sizeof(packet->type)) <= 0)
     {
         perror("Error reading packet type from socket");
-        return -1;
+        free(packet);
+        return NULL;
     }
 
-    // Obtem o tipo do tamanho do payload
+    // Read the length of the payload
     if (read(socket, &(packet->length_payload), sizeof(packet->length_payload)) <= 0)
     {
         perror("Error reading payload length from socket");
-        return -1;
+        free(packet);
+        return NULL;
     }
 
-    // Obtem o payload
+    // Read the payload
     packet->payload = NULL;
     if (packet->length_payload > 0)
     {
@@ -130,19 +133,20 @@ int receive_packet_from_socket(int socket, packet_t *packet)
         if (!packet->payload)
         {
             perror("Failed to allocate memory for payload");
-            return -1;
+            free(packet);
+            return NULL;
         }
 
         if (read(socket, packet->payload, packet->length_payload) <= 0)
         {
             perror("Error reading payload from socket");
             free(packet->payload);
-            packet->payload = NULL;
-            return -1;
+            free(packet);
+            return NULL;
         }
     }
 
-    return 0;
+    return packet;
 }
 
 int is_equal(const char *str1, const char *str2)
@@ -223,4 +227,58 @@ void get_file_metadata_list(const char *basepath, char *file_list)
     }
 
     closedir(dir);
+}
+
+long get_file_size(const char *file_name) {
+    FILE *file = fopen(file_name, "rb");
+    if (file == NULL) {
+        perror("Error opening file");
+        return -1;
+    }
+
+    if (fseek(file, 0, SEEK_END) != 0) {
+        perror("Error seeking to end of file");
+        fclose(file);
+        return -1;
+    }
+
+    long size = ftell(file);
+    if (size == -1) {
+        perror("Error getting file size");
+        fclose(file);
+        return -1;
+    }
+
+    fclose(file);
+    return size;
+}
+
+char* read_file_into_buffer(const char *filename) {
+    long size = get_file_size(filename);
+    if (size == -1) {
+        return NULL;
+    }
+
+    FILE *file = fopen(filename, "rb");
+    if (file == NULL) {
+        perror("Error opening file");
+        return NULL;
+    }
+
+    char *buffer = (char *)malloc(size);
+    if (buffer == NULL) {
+        perror("Error allocating memory for buffer");
+        fclose(file);
+        return NULL;
+    }
+
+    if (fread(buffer, 1, size, file) != size) {
+        perror("Error reading file into buffer");
+        free(buffer);
+        fclose(file);
+        return NULL;
+    }
+
+    fclose(file);
+    return buffer;
 }

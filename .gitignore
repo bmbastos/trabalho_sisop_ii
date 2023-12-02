@@ -4,3 +4,4 @@ client/clientFiles/*
 server/serverFiles/*
 client/client
 server/server
+*/sync_dir*/*

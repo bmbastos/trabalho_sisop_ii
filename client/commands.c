@@ -2,16 +2,56 @@
 #include "./interface.h"
 #include <sys/select.h>
 
-int upload_file(const char *filename, int socket)
-{
-    packet_t *packet = create_packet(CMD_UPLOAD, filename, strlen(filename));
-
-    if (send_packet_to_socket(socket, packet) < 0)
-    {
-        perror("Error writing to socket\n");
+int upload_file(const char *filename, int socket) {
+    if (filename == NULL) {
+        perror("Filename is NULL\n");
         return ERROR;
     }
-    perror("Command to be implemented\n");
+
+    packet_t *filename_packet = create_packet(CMD_UPLOAD, filename, strlen(filename));
+    if (!filename_packet) {
+        perror("Failed to create filename packet\n");
+        return ERROR;
+    }
+
+    if (send_packet_to_socket(socket, filename_packet) < 0) {
+        perror("Error writing filename to socket\n");
+        destroy_packet(filename_packet);
+        return ERROR;
+    }
+    destroy_packet(filename_packet);
+
+    char filepath[60] = CLIENT_FILE_PATH;
+    strcat(filepath, filename);
+    printf("filepath: %s\n", filepath);
+
+    char *file_buffer = read_file_into_buffer(filepath);
+    if (!file_buffer) {
+        perror("Failed to read file into buffer\n");
+        return ERROR;
+    }
+
+    size_t file_size = get_file_size(filepath);
+    packet_t *data_packet = create_packet(DATA, file_buffer, file_size);
+    if (data_packet->length_payload == 0)
+    {
+        perror("Packet is malformed\n");
+        return ERROR;
+    }
+    free(file_buffer);
+
+    if (!data_packet) {
+        perror("Failed to create data packet\n");
+        return ERROR;
+    }
+
+    if (send_packet_to_socket(socket, data_packet) < 0) {
+        perror("Error writing file to socket\n");
+        destroy_packet(data_packet);
+        return ERROR;
+    }
+    destroy_packet(data_packet);
+
     return 0;
 }
 
@@ -35,8 +75,8 @@ int download_file(const char *filename, int socket)
         return ERROR;
     }
 
-    packet_t *receivedFilePacket = malloc(sizeof(packet_t));
-    if (receive_packet_from_socket(socket, receivedFilePacket) < 0) {
+    const packet_t *receivedFilePacket = receive_packet_from_socket(socket);
+    if (!receivedFilePacket) {
         fprintf(stderr, "Failed to receive file packet\n");
         fclose(file_ptr);
         return ERROR;
@@ -82,9 +122,9 @@ int list_server(int socket)
         return ERROR;
     }
     
-    packet_t *packetFileListBuffer = malloc(sizeof(packet_t));
+    const packet_t *packetFileListBuffer = receive_packet_from_socket(socket);
 
-    if (receive_packet_from_socket(socket, packetFileListBuffer) < 0)
+    if (!packetFileListBuffer)
     {
         printf("Error reading packet from socket. Closing connection\n");
         close(socket);
