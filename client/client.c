@@ -125,8 +125,6 @@ int main(int argc, char *argv[])
 
     pthread_join(userInterfaceThread, NULL);
 
-    close(sockfd);
-
     free(username_payload);
     destroy_packet(packetUsername);
 

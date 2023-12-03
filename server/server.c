@@ -16,6 +16,7 @@ typedef struct
 {
     packet_t packet;
     char userpath[50];
+    char *username;
     int socket;
 } thread_data_t;
 
@@ -38,7 +39,7 @@ void free_user_list(list_users_t *list);
 
 // Funções relacionadas ao servidor
 int setupSocket(int *sockfd);
-int handle_packet(thread_data_t *data_ptr);
+int handle_packet(thread_data_t *data_ptr, int* conn_closed);
 packet_t *receive_packet_from_socket(int socket);
 void create_folder(char username[50]);
 void *handle_new_client_connection(void *args);
@@ -73,7 +74,7 @@ list_users_t *create_new_user(char *user_name, int user_socket)
     return new_user;
 }
 
-int send_login_response(int response, int socket)
+int send_connection_response(int response, int socket)
 {
     char response_str[12];
     snprintf(response_str, sizeof(response_str), "%d", response);
@@ -90,7 +91,7 @@ list_users_t *insert_or_update_new_connection(list_users_t *list, char *username
 {
     if (list == NULL) // Lista está vazia: cria um novo usuário
     {
-        send_login_response(EXIT_SUCCESS, user_socket);
+        send_connection_response(EXIT_SUCCESS, user_socket);
         return create_new_user(username, user_socket);
     }
     else if (strcmp(username, list->username) == 0) // A cabeça da lista contém o usuário: verifica se existe espaço para conectar
@@ -115,10 +116,10 @@ list_users_t *insert_or_update_new_connection(list_users_t *list, char *username
             {
                 perror("Não foi possível fechar o socket\n");
             }
-            send_login_response(ERROR, user_socket);
+            send_connection_response(ERROR, user_socket);
             *conn_closed = 1;
         }
-        send_login_response(EXIT_SUCCESS, user_socket);
+        send_connection_response(EXIT_SUCCESS, user_socket);
         return list;
     }
     else // A cabeça da lista não contém o usuário: continua procurando
@@ -130,6 +131,11 @@ list_users_t *insert_or_update_new_connection(list_users_t *list, char *username
 
 list_users_t *remove_user_connection(list_users_t *list, char *user_name, int user_socket)
 {
+    printf("Removendo conexão do usuário %s\n", user_name);
+    printf("user socket %d\n", user_socket);
+    printf("user list %d\n", list->socket[0]);
+    printf("user list %d\n", list->socket[1]);
+
     if (list == NULL)
     {
         printf("Lista de usuários vazia.\n");
@@ -143,11 +149,13 @@ list_users_t *remove_user_connection(list_users_t *list, char *user_name, int us
     {
         if (strcmp(current->username, user_name) == 0)
         {
+            printf("Usuário encontrado.\n");
             // Verifica se a conexão existe para o IP e o Socket fornecidos
             for (int i = 0; i < current->connections; ++i)
             {
                 if (current->socket[i] == user_socket)
                 {
+                    printf("Conexão encontrada.\n");
                     // Remove a conexão
                     current->connections -= 1;
                     current->socket[i] = 0;
@@ -182,7 +190,8 @@ list_users_t *remove_user_connection(list_users_t *list, char *user_name, int us
         current = current->next;
     }
 
-    printf("Usuário ou conexão não encontrados.\n");
+    users = list;
+
     return list;
 }
 
@@ -264,7 +273,7 @@ int handle_login(int socket, const char *username)
     return ERROR;
 }
 
-int handle_packet(thread_data_t *data_ptr)
+int handle_packet(thread_data_t *data_ptr, int* conn_closed)
 {
     thread_data_t *data = data_ptr;
     int n;
@@ -322,12 +331,9 @@ int handle_packet(thread_data_t *data_ptr)
         }
         break;
     case CMD_EXIT:
-        if (close(data->socket) < 0)
-        {
-            perror("Error closing socket");
-            return ERROR;
-        }
-        users = remove_user_connection(users, data->userpath, data->socket); // Verificar se seria assim a remoção
+        send_connection_response(EXIT_SUCCESS, data->socket);
+        *conn_closed = 1;
+        users = remove_user_connection(users, data->username, data->socket); // Verificar se seria assim a remoção
         break;
     case DATA:
         if (receive_data(data->socket, packet) < 0)
@@ -371,8 +377,16 @@ void *handle_new_client_connection(void *args)
         return (void *)-1;
     }
 
+    int conn_closed = 0;
+
     while (1)
     {
+        if (conn_closed)
+        {
+            printf("Conexão do client encerrada.\n");
+            break;
+        }
+
         bzero(packet_buffer, sizeof(packet_t));
         packet_buffer = receive_packet_wo_payload(socket);
         if (receive_packet_payload(socket, packet_buffer) < 0)
@@ -397,7 +411,6 @@ void *handle_new_client_connection(void *args)
                 strcat(path, username);
                 folderChecked = 1;
                 // Se existir a pasta do usuário no servidor, não cria uma nova, simplesmente faz sincronização && cria uma conexão na lista de conexões.
-                int conn_closed = 0;
                 users = insert_or_update_new_connection(users, username, socket, &conn_closed);
                 // Se não existir a pasta: cria e faz conexão com o servidor
 
@@ -424,12 +437,13 @@ void *handle_new_client_connection(void *args)
 
         thread_data->packet = *packet_buffer;
         thread_data->socket = socket;
+        thread_data->username = username;
         strcpy(thread_data->userpath, path);
 
         printf("Received packet:\n");
         print_packet(packet_buffer);
 
-        if (handle_packet(thread_data) < 0)
+        if (handle_packet(thread_data, &conn_closed) < 0)
         {
             perror("Error handling packet received");
         }

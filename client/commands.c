@@ -205,3 +205,23 @@ int receive_data(int socket, void *buffer, size_t length, int timeout_sec)
 
     return total_received;
 }
+
+int close_connection(int socket) {
+    packet_t *packet = create_packet(CMD_EXIT, NULL, 0);
+
+    if (send_packet_to_socket(socket, packet) < 0)
+    {
+        perror("Error writing to socket\n");
+        return ERROR;
+    }
+
+    const packet_t *packetExitResponse = receive_packet_from_socket(socket);
+    int response = atoi(packetExitResponse->payload);
+
+    if (response == EXIT_SUCCESS)
+    {
+        return EXIT_SUCCESS;
+    }
+
+    return ERROR;
+}

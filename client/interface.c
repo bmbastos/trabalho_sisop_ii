@@ -26,9 +26,18 @@ int parse_input(char* input, int socket) {
             perror("Error listing client files");
         }
     } else if (strcmp(input, "exit") == 0) {
-        if (close(socket) < 0) {
-            perror("Error closing socket");
+        if(close_connection(socket) < 0) {
+            perror("Error closing connection.");
+            return 0;
         }
+
+        if (close(socket) < 0) {
+            perror("Error closing connection.");
+            return 0;
+        }
+        
+        printf("\nConexão encerrada com sucesso.\n");
+
         return 1;
     } else {
         fprintf(stderr, "Tipo de pacote desconhecido ou entrada inválida.\n");
