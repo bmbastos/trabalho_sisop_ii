@@ -2,11 +2,19 @@
 #include "./interface.h"
 #include <sys/select.h>
 
-int upload_file(const char *filename, int socket) {
-    if (filename == NULL) {
+int upload_file(const char *filepath, int socket) {
+    if (filepath == NULL) {
         perror("Filename is NULL\n");
         return ERROR;
     }
+
+    // Extrair o nome do arquivo do caminho
+    const char *filename = strrchr(filepath, '/');
+    if (filename == NULL) {
+        perror("Invalid filepath\n");
+        return ERROR;
+    }
+    filename++; // Avança um caractere para passar a barra
 
     packet_t *filename_packet = create_packet(CMD_UPLOAD, filename, strlen(filename));
     if (!filename_packet) {
@@ -19,11 +27,9 @@ int upload_file(const char *filename, int socket) {
         destroy_packet(filename_packet);
         return ERROR;
     }
+
     destroy_packet(filename_packet);
 
-    char filepath[60] = CLIENT_FILE_PATH;
-    strcat(filepath, filename);
-    printf("filepath: %s\n", filepath);
 
     size_t file_size = get_file_size(filepath);
     char *file_buffer = read_file_into_buffer(filepath);

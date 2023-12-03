@@ -288,8 +288,9 @@ int handle_packet(thread_data_t *data_ptr, int* conn_closed)
             perror("Error handling client login");
             return ERROR;
         }
+        break;
     case CMD_UPLOAD:
-        if (receive_file(data->socket, data->userpath, packet.payload) < 0)
+        if (receive_file(data->socket, data->userpath, packet.payload, packet.length_payload) < 0)
         {
             perror("Error receiving file from socket");
             return ERROR;

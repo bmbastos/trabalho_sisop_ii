@@ -55,15 +55,18 @@ int send_file(int client_socket, const char *filename, const char *filepath)
     return 1;
 }
 
-int receive_file(int client_socket, const char *user, const char *filename)
+int receive_file(int client_socket, const char *user, const char *file_name, uint32_t lengthpayload)
 {
-    printf("Receiving data\n");
-    const packet_t *data_packet = receive_packet_from_socket(client_socket);
+    packet_t *data_packet = receive_packet_from_socket(client_socket);
     if (data_packet == NULL || data_packet->length_payload == 0 || data_packet->type != DATA)
     {
         perror("Failed to receive DATA package.");
         return ERROR;
     }
+
+    char *filename = (char *)malloc(lengthpayload + 1);
+    strncpy(filename, file_name, lengthpayload);
+    filename[lengthpayload] = '\0';
 
     char filepath[100];
     snprintf(filepath, sizeof(filepath), "%s/%s", user, filename);
