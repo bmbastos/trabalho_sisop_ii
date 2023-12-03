@@ -60,7 +60,7 @@ struct sockaddr_in initializeServerAddress(struct hostent *server)
     return serv_addr;
 }
 
-int checkAck(int socket)
+int check_login_response(int socket)
 {
     const packet_t *login_response_packet = receive_packet_from_socket(socket);
     int response = atoi(login_response_packet->payload);
@@ -106,7 +106,7 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    if (checkAck(sockfd) < 0)
+    if (check_login_response(sockfd) < 0)
     {
         close(sockfd);
         printf("Conexão negada pelo servidor\n");
