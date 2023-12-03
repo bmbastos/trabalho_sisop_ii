@@ -9,6 +9,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#define SHOULD_PRINT_PACKETS 1
 #define ERROR -1
 
 typedef enum {
@@ -33,13 +34,12 @@ packet_t* create_packet(type_packet_t type, const char* payload, int payload_len
 void destroy_packet(packet_t* packet);
 const char* get_packet_type_name(type_packet_t type);
 void print_packet(const packet_t* packet);
-int send_packet_to_socket(int socket, packet_t* packet);
+int send_packet_to_socket(int socket, const packet_t* packet);
 packet_t * receive_packet_from_socket(int socket);
 void destroy_packet(packet_t *packet);
 char* clone_string(const char* src);
 int is_equal(const char *str1, const char *str2);
 void print_socket_info(struct sockaddr_in cli_addr);
-int send_packet(int socket, const packet_t *packet);
 void get_file_metadata_list(const char *basepath, char *file_list);
 long get_file_size(const char *filename);
 char* read_file_into_buffer(const char *filename);

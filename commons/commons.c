@@ -44,21 +44,27 @@ const char* get_packet_type_name(type_packet_t type) {
 }
 
 void print_packet(const packet_t* packet) {
+    if (!SHOULD_PRINT_PACKETS)
+    {
+        return;
+    }
     if (!packet) {
         printf("Packet is NULL\n");
         return;
     }
-    printf("Packet type: %s (id = %d)\n", get_packet_type_name(packet->type), packet->type);
-    printf("Payload length: %u\n", packet->length_payload);
+    printf("Packet {\n\t");
+    printf("Packet type: %s (id = %d)\n\t", get_packet_type_name(packet->type), packet->type);
+    printf("Payload length: %u\n\t", packet->length_payload);
     printf("Payload: ");
     if (packet->payload && packet->length_payload > 0) {
         printf("%s\n", packet->payload);
     } else {
         printf("None\n");
     }
+    printf("}\n");
 }
 
-int send_packet_to_socket(int socket, packet_t* packet)
+int send_packet_to_socket(int socket, const packet_t* packet)
 {
     size_t total_size = sizeof(packet->type) + sizeof(packet->length_payload) + packet->length_payload;
     
@@ -94,7 +100,7 @@ int send_packet_to_socket(int socket, packet_t* packet)
     }
 
     print_packet(packet);
-    printf("Sent succesfully!\n");
+    printf("Packet enviado com sucesso\n");
 
     free(buffer);
     return 0;
