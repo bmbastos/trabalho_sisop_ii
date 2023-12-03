@@ -7,7 +7,9 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <pthread.h>
+#ifdef __linux__
 #include <sys/inotify.h>
+#endif
 #include <limits.h>
 #include "../commons/commons.h"
 #include "../client/commands.h"
@@ -75,6 +77,7 @@ int check_login_response(int socket)
 }
 
 void handle_inotify_event(int fd, int sockfd) {
+    #ifdef __linux__
     char buffer[4096];
     ssize_t bytesRead;
 
@@ -117,9 +120,11 @@ void handle_inotify_event(int fd, int sockfd) {
         // Add more event checks if needed
         ptr += sizeof(struct inotify_event) + event->len;
     }
+    #endif
 }
 
 void *start_inotify(void *socket_ptr) {
+    #ifdef __linux__
     int inotifyFd, watchFd;
     int socket = *((int*)socket_ptr);
 
@@ -176,6 +181,7 @@ void *start_inotify(void *socket_ptr) {
     close(inotifyFd);
     // Don't forget to free the allocated memory
     free(PATH);
+    #endif
     return NULL;
 }
 

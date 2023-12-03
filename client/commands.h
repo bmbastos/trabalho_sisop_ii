@@ -5,6 +5,7 @@
 #include "../commons/commons.h"
 
 #define CLIENT_FILE_PATH "./sync_dir/"
+#define DOWNLOADS_FILE_PATH "./downloads/"
 #define READ_TIMEOUT 10
 
 // COMANDOS PRINCIPAIS

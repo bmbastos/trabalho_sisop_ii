@@ -72,7 +72,7 @@ int download_file(const char *filename, int socket)
     }
 
     char file_path[270];
-    snprintf(file_path, sizeof(file_path), "%s/%s", CLIENT_FILE_PATH, filename);
+    snprintf(file_path, sizeof(file_path), "%s/%s", DOWNLOADS_FILE_PATH, filename);
 
     FILE *file_ptr = fopen(file_path, "wb");
     if (file_ptr == NULL)

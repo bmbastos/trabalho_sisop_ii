@@ -6,3 +6,4 @@ client/client
 server/server
 */sync_dir*/*
 **/.DS_Store
+client/downloads/*

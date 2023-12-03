@@ -113,12 +113,6 @@ int list_client(int socket)
     return ERROR;
 }
 
-int receive_data(int socket, packet_t packet)
-{
-    perror("To be implemented");
-    return ERROR;
-}
-
 int list_server(int client_socket, const char *userpath)
 {
     char file_list[2048] = "";

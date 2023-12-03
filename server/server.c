@@ -337,11 +337,7 @@ int handle_packet(thread_data_t *data_ptr, int* conn_closed)
         users = remove_user_connection(users, data->username, data->socket); // Verificar se seria assim a remoção
         break;
     case DATA:
-        if (receive_data(data->socket, packet) < 0)
-        {
-            perror("Error reciving data from socket");
-            return ERROR;
-        }
+        printf("DATA packet not expected\n");
         break;
     }
 
