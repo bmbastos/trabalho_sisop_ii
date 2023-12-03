@@ -7,6 +7,8 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <pthread.h>
+#include <sys/inotify.h>
+#include <limits.h>
 #include "../commons/commons.h"
 #include "../client/commands.h"
 #include "./interface.h"
@@ -74,6 +76,110 @@ int check_login_response(int socket)
         printf("Limite máximo [2] de conexões ativas atingido.\n");
         return ERROR;
     }
+}
+
+void handle_inotify_event(int fd) {
+    char buffer[4096];
+    ssize_t bytesRead;
+
+    bytesRead = read(fd, buffer, sizeof(buffer));
+    if (bytesRead == -1) {
+        perror("read");
+        exit(EXIT_FAILURE);
+    }
+
+    for (char *ptr = buffer; ptr < buffer + bytesRead; ) {
+        struct inotify_event *event = (struct inotify_event *)ptr;
+
+        if (event->mask & IN_CLOSE_WRITE) {
+            printf("File m_time has changed: %s\n", event->name);
+            //DELETE(event->name);
+            //UPLOAD(event->name);
+            //inotify precisa de um Mutex para esse
+            //  tipo de operaçao nao entrar em loop
+            //  apagando o arquivo do client antes
+            //  de ele ser upado para o server
+        }
+
+        if (event->mask & IN_CREATE) {
+            printf("File created: %s\n", event->name);
+            // UPLOAD(event->name);
+        }
+        if (event->mask & IN_MOVED_FROM) {
+            printf("File moved from: %s\n", event->name);
+            // DELETE(event->name);
+        }
+        if (event->mask & IN_MOVED_TO) {
+            printf("File moved to: %s\n", event->name);
+            // UPLOAD(event->name);
+        }
+        if (event->mask & IN_DELETE) {
+            printf("File moved to: %s\n", event->name);
+            // DELETE(event->name);
+        }
+
+        // Add more event checks if needed
+        ptr += sizeof(struct inotify_event) + event->len;
+    }
+}
+
+void start_inotify() {
+    int inotifyFd, watchFd;
+
+    // Initialize inotify
+    inotifyFd = inotify_init();
+    if (inotifyFd == -1) {
+        perror("inotify_init");
+        exit(EXIT_FAILURE);
+    }
+
+    // Gets the sync_dir pathfile
+
+    char *PATH;
+    char currentPath[256];
+
+    // Get the current working directory
+    if (getcwd(currentPath, sizeof(currentPath)) == NULL) {
+        perror("getcwd");
+        exit(EXIT_FAILURE);
+    }
+
+    // Allocate memory for the combined path
+    size_t pathLength = strlen(currentPath) + strlen("/sync_dir") + 1;
+    PATH = (char *)malloc(pathLength);
+
+    // Check for allocation failure
+    if (PATH == NULL) {
+        perror("malloc");
+        exit(EXIT_FAILURE);
+    }
+
+    // Combine the paths
+    strcpy(PATH, currentPath);
+    strcat(PATH, "/sync_dir");
+
+    // Now PATH contains the concatenated path
+    printf("Concatenated Path: %s\n", PATH);
+
+    // Add a watch for the directory
+    watchFd = inotify_add_watch(inotifyFd, PATH, IN_MODIFY | IN_CLOSE_WRITE | IN_CLOSE_NOWRITE | IN_CREATE | IN_MOVED_FROM | IN_MOVED_TO | IN_DELETE);
+    if (watchFd == -1) {
+        perror("inotify_add_watch");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("Watching for file modifications in the directory...\n");
+
+    // Main event loop
+    while (1) {
+        handle_inotify_event(inotifyFd);
+    }
+
+    // Close inotify descriptor when done (this part will not be reached in this example)
+    close(inotifyFd);
+    // Don't forget to free the allocated memory
+    free(PATH);
+    return;
 }
 
 int main(int argc, char *argv[])
