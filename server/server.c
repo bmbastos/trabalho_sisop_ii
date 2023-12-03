@@ -374,7 +374,12 @@ void *handle_new_client_connection(void *args)
     while (1)
     {
         bzero(packet_buffer, sizeof(packet_t));
-        packet_buffer = receive_packet_from_socket(socket);
+        packet_buffer = receive_packet_wo_payload(socket);
+        if (receive_packet_payload(socket, packet_buffer) < 0)
+        {
+            perror("Failed to receive packet payload");
+            continue;
+        }
 
         if (!packet_buffer)
         {

@@ -25,13 +25,13 @@ int upload_file(const char *filename, int socket) {
     strcat(filepath, filename);
     printf("filepath: %s\n", filepath);
 
+    size_t file_size = get_file_size(filepath);
     char *file_buffer = read_file_into_buffer(filepath);
     if (!file_buffer) {
         perror("Failed to read file into buffer\n");
         return ERROR;
     }
 
-    size_t file_size = get_file_size(filepath);
     packet_t *data_packet = create_packet(DATA, file_buffer, file_size);
     if (data_packet->length_payload == 0)
     {

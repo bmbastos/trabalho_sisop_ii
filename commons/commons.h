@@ -36,6 +36,8 @@ const char* get_packet_type_name(type_packet_t type);
 void print_packet(const packet_t* packet);
 int send_packet_to_socket(int socket, const packet_t* packet);
 packet_t * receive_packet_from_socket(int socket);
+packet_t* receive_packet_wo_payload(int socket);
+int receive_packet_payload(int socket, packet_t *packet);
 void destroy_packet(packet_t *packet);
 char* clone_string(const char* src);
 int is_equal(const char *str1, const char *str2);
