@@ -69,7 +69,11 @@ int check_login_response(int socket)
         printf("Logado com sucesso ao servidor!\n");
         return 0;
     }
-    return ERROR;
+    else
+    {
+        printf("Limite máximo [2] de conexões ativas atingido.\n");
+        return ERROR;
+    }
 }
 
 int main(int argc, char *argv[])

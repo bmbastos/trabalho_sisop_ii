@@ -111,7 +111,7 @@ list_users_t *insert_or_update_new_connection(list_users_t *list, char *username
         }
         else
         {
-            printf("Você atingiu o limite de conexões (2)\n");
+            printf("%s atingiu o limite de conexões por usuário.\n", username);
             if ((user_socket) < 0)
             {
                 perror("Não foi possível fechar o socket\n");
