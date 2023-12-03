@@ -71,14 +71,10 @@ int check_login_response(int socket)
         printf("Logado com sucesso ao servidor!\n");
         return 0;
     }
-    else
-    {
-        printf("Limite máximo [2] de conexões ativas atingido.\n");
-        return ERROR;
-    }
+    return ERROR;
 }
 
-void handle_inotify_event(int fd) {
+void handle_inotify_event(int fd, int sockfd) {
     char buffer[4096];
     ssize_t bytesRead;
 
@@ -103,19 +99,19 @@ void handle_inotify_event(int fd) {
 
         if (event->mask & IN_CREATE) {
             printf("File created: %s\n", event->name);
-            // UPLOAD(event->name);
+            upload_file(event->name, sockfd);
         }
         if (event->mask & IN_MOVED_FROM) {
             printf("File moved from: %s\n", event->name);
-            // DELETE(event->name);
+            delete_file(event->name, sockfd);
         }
         if (event->mask & IN_MOVED_TO) {
             printf("File moved to: %s\n", event->name);
-            // UPLOAD(event->name);
+            upload_file(event->name, sockfd);
         }
         if (event->mask & IN_DELETE) {
             printf("File moved to: %s\n", event->name);
-            // DELETE(event->name);
+            delete_file(event->name, sockfd);
         }
 
         // Add more event checks if needed
@@ -123,8 +119,9 @@ void handle_inotify_event(int fd) {
     }
 }
 
-void start_inotify() {
+void *start_inotify(void *socket_ptr) {
     int inotifyFd, watchFd;
+    int socket = *((int*)socket_ptr);
 
     // Initialize inotify
     inotifyFd = inotify_init();
@@ -162,7 +159,7 @@ void start_inotify() {
     printf("Concatenated Path: %s\n", PATH);
 
     // Add a watch for the directory
-    watchFd = inotify_add_watch(inotifyFd, PATH, IN_MODIFY | IN_CLOSE_WRITE | IN_CLOSE_NOWRITE | IN_CREATE | IN_MOVED_FROM | IN_MOVED_TO | IN_DELETE);
+    watchFd = inotify_add_watch(inotifyFd, PATH, IN_MODIFY | IN_CLOSE_WRITE | IN_CREATE | IN_MOVED_FROM | IN_MOVED_TO | IN_DELETE);
     if (watchFd == -1) {
         perror("inotify_add_watch");
         exit(EXIT_FAILURE);
@@ -172,14 +169,14 @@ void start_inotify() {
 
     // Main event loop
     while (1) {
-        handle_inotify_event(inotifyFd);
+        handle_inotify_event(inotifyFd, socket);
     }
 
     // Close inotify descriptor when done (this part will not be reached in this example)
     close(inotifyFd);
     // Don't forget to free the allocated memory
     free(PATH);
-    return;
+    return NULL;
 }
 
 int main(int argc, char *argv[])
@@ -223,17 +220,30 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
+    // THREAD INOTIFY
+    pthread_t start_inotifyThread;
+
+    if (pthread_create(&start_inotifyThread, NULL, start_inotify, (void *)&sockfd))
+    {
+        fprintf(stderr, "Erro ao criar thread start_inotify.\n");
+        free(username_payload);
+        destroy_packet(packetUsername);
+        exit(EXIT_FAILURE);
+    }
+
     pthread_t userInterfaceThread;
 
     if (pthread_create(&userInterfaceThread, NULL, userInterface, (void *)&sockfd))
     {
-        fprintf(stderr, "Erro ao criar thread.\n");
+        fprintf(stderr, "Erro ao criar thread userInterface.\n");
         free(username_payload);
         destroy_packet(packetUsername);
         exit(EXIT_FAILURE);
     }
 
     pthread_join(userInterfaceThread, NULL);
+
+    close(sockfd);
 
     free(username_payload);
     destroy_packet(packetUsername);
