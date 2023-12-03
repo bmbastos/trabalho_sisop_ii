@@ -13,3 +13,6 @@ client:	./client/client.c
 server: ./server/server.c
 	gcc -c ./server/commands.c && mv ./commands.o ./bin
 	gcc -o ./server/server ./server/server.c ./bin/commons.o ./bin/commands.o -pthread
+
+clean:
+	rm -rf sync_dir_*

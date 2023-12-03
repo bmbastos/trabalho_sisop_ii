@@ -25,10 +25,6 @@ int parse_input(char* input, int socket) {
         if (list_client(socket) < 0) {
             perror("Error listing client files");
         }
-    } else if (strcmp(input, "get_sync_dir") == 0) {
-        if (get_sync_dir(socket) < 0) {
-            perror("Error getting sync dir");
-        }
     } else if (strcmp(input, "exit") == 0) {
         if (close(socket) < 0) {
             perror("Error closing socket");
@@ -42,12 +38,12 @@ int parse_input(char* input, int socket) {
 }
 
 void printOptionsMenu() {
+    printf("\n");
     printf("# upload\n");
     printf("# download\n");
     printf("# delete\n");
     printf("# list_server\n");
     printf("# list_client\n");
-    printf("# get_sync_dir\n");
     printf("# exit\n");
     printf("Digite um comando: ");
 }
@@ -62,6 +58,7 @@ void *userInterface(void  *socket_ptr)
 
         printOptionsMenu();
         fgets(input, sizeof(input), stdin);
+        printf("\n");
 
         input[strcspn(input, "\n")] = '\0';
 
