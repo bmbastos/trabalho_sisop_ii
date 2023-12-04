@@ -11,6 +11,7 @@
 
 #define SHOULD_PRINT_PACKETS 1
 #define ERROR -1
+#define SYNC_DIR_BASE_PATH "./sync_dir_"
 
 typedef enum {
     DATA,
@@ -45,5 +46,6 @@ void print_socket_info(struct sockaddr_in cli_addr);
 void get_file_metadata_list(const char *basepath, char *file_list);
 long get_file_size(const char *filename);
 char* read_file_into_buffer(const char *filename);
+void create_folder(char username[50]);
 
 #endif
