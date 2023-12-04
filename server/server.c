@@ -43,7 +43,6 @@ int setup_notification_observer(int socket, char* username);
 int setupSocket(int *sockfd, int port);
 int handle_packet(thread_data_t *data_ptr, int *conn_closed);
 packet_t *receive_packet_from_socket(int socket);
-void create_folder(char username[50]);
 void *handle_new_client_connection(void *args);
 
 // ===========================================================================================================================================================
@@ -326,13 +325,6 @@ int handle_packet(thread_data_t *data_ptr, int *conn_closed)
             return ERROR;
         }
         break;
-    case CMD_GET_SYNC_DIR:
-        if (get_sync_dir(data->socket) < 0)
-        {
-            perror("Error sending sync dir");
-            return ERROR;
-        }
-        break;
     case CMD_EXIT:
         send_connection_response(EXIT_SUCCESS, data->socket);
         *conn_closed = 1;
@@ -352,21 +344,6 @@ int handle_packet(thread_data_t *data_ptr, int *conn_closed)
     }
 
     return 0;
-}
-
-void create_folder(char username[50])
-{
-    char user_dir[100];
-
-    snprintf(user_dir, sizeof(user_dir), "%s%s", SYNC_DIR_BASE_PATH, username);
-    if (mkdir(user_dir, 0777) == -1)
-    {
-        printf("Pasta %s já existe.\n", user_dir);
-    }
-    else
-    {
-        printf("Pasta %s criada.\n", user_dir);
-    }
 }
 
 int setup_notification_observer(int socket, char* username)

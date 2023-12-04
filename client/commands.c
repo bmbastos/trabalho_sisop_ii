@@ -161,20 +161,6 @@ int list_client(int socket)
     return 0;
 }
 
-int get_sync_dir(int socket)
-{
-    packet_t *packet = create_packet(CMD_GET_SYNC_DIR, NULL, 0);
-
-    if (send_packet_to_socket(socket, packet) < 0)
-    {
-        perror("Error writing to socket\n");
-        return ERROR;
-    }
-
-    perror("Command to be implemented\n");
-    return 0;
-}
-
 int receive_data(int socket, void *buffer, size_t length, int timeout_sec)
 {
     fd_set fds;

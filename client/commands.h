@@ -9,7 +9,6 @@
 #define READ_TIMEOUT 10
 
 // COMANDOS PRINCIPAIS
-int get_sync_dir(int socket);
 int upload_file(const char* filename, int socket);
 int download_file(const char* filename, int socket, int on_sync_dir);
 int delete_file(const char* filename, int socket);

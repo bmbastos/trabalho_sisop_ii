@@ -370,3 +370,18 @@ char *read_file_into_buffer(const char *filename)
     fclose(file);
     return buffer;
 }
+
+void create_folder(char username[50])
+{
+    char user_dir[100];
+
+    snprintf(user_dir, sizeof(user_dir), "%s%s", SYNC_DIR_BASE_PATH, username);
+    if (mkdir(user_dir, 0777) == -1)
+    {
+        printf("Pasta %s já existe.\n", user_dir);
+    }
+    else
+    {
+        printf("Pasta %s criada.\n", user_dir);
+    }
+}

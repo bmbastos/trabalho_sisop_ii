@@ -133,9 +133,3 @@ int list_server(int client_socket, const char *userpath)
 
     return 0;
 }
-
-int get_sync_dir(int client_socket)
-{
-    perror("To be done\n");
-    return -1;
-}
