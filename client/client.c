@@ -15,6 +15,13 @@
 #include "../client/commands.h"
 #include "./interface.h"
 
+typedef struct thread_data
+{
+    struct sockaddr_in serv_addr;
+    const char *username;
+    int data_socket;
+} thread_data_t;
+
 void printUsage()
 {
     printf("Invalid arguments.\nUsage: ./client <username> <server_ip_address> <port>\n");
@@ -74,53 +81,62 @@ int check_login_response(int socket)
     return ERROR;
 }
 
-void handle_inotify_event(int fd, int sockfd) {
-    #ifdef __linux__
+void handle_inotify_event(int fd, int sockfd)
+{
+#ifdef __linux__
     char buffer[4096];
     ssize_t bytesRead;
 
     bytesRead = read(fd, buffer, sizeof(buffer));
-    if (bytesRead == -1) {
+    if (bytesRead == -1)
+    {
         perror("read");
         exit(EXIT_FAILURE);
     }
 
-    for (char *ptr = buffer; ptr < buffer + bytesRead; ) {
+    for (char *ptr = buffer; ptr < buffer + bytesRead;)
+    {
         struct inotify_event *event = (struct inotify_event *)ptr;
 
         char currentPath[1024];
 
-        if (getcwd(currentPath, sizeof(currentPath)) == NULL) {
+        if (getcwd(currentPath, sizeof(currentPath)) == NULL)
+        {
             perror("getcwd"); // indicate an error
-        }   
-
-        if (event->mask & IN_CLOSE_WRITE) {
-            printf("File m_time has changed: %s\n", event->name);
-            //DELETE(event->name);
-            //UPLOAD(event->name);
-            //inotify precisa de um Mutex para esse
-            //  tipo de operaçao nao entrar em loop
-            //  apagando o arquivo do client antes
-            //  de ele ser upado para o server
         }
 
-        if (event->mask & IN_CREATE) {
+        if (event->mask & IN_CLOSE_WRITE)
+        {
+            printf("File m_time has changed: %s\n", event->name);
+            // DELETE(event->name);
+            // UPLOAD(event->name);
+            // inotify precisa de um Mutex para esse
+            //   tipo de operaçao nao entrar em loop
+            //   apagando o arquivo do client antes
+            //   de ele ser upado para o server
+        }
+
+        if (event->mask & IN_CREATE)
+        {
             printf("File created: %s\n", event->name);
             strcat(currentPath, "/");
             strcat(currentPath, event->name);
             upload_file(currentPath, sockfd);
         }
-        if (event->mask & IN_MOVED_FROM) {
+        if (event->mask & IN_MOVED_FROM)
+        {
             printf("File moved from: %s\n", event->name);
             delete_file(event->name, sockfd);
         }
-        if (event->mask & IN_MOVED_TO) {
+        if (event->mask & IN_MOVED_TO)
+        {
             printf("File moved to: %s\n", event->name);
             strcat(currentPath, "/");
             strcat(currentPath, event->name);
             upload_file(currentPath, sockfd);
         }
-        if (event->mask & IN_DELETE) {
+        if (event->mask & IN_DELETE)
+        {
             printf("File moved to: %s\n", event->name);
             delete_file(event->name, sockfd);
         }
@@ -128,17 +144,19 @@ void handle_inotify_event(int fd, int sockfd) {
         // Add more event checks if needed
         ptr += sizeof(struct inotify_event) + event->len;
     }
-    #endif
+#endif
 }
 
-void *start_inotify(void *socket_ptr) {
-    #ifdef __linux__
+void *start_inotify(void *socket_ptr)
+{
+#ifdef __linux__
     int inotifyFd, watchFd;
-    int socket = *((int*)socket_ptr);
+    int socket = *((int *)socket_ptr);
 
     // Initialize inotify
     inotifyFd = inotify_init();
-    if (inotifyFd == -1) {
+    if (inotifyFd == -1)
+    {
         perror("inotify_init");
         exit(EXIT_FAILURE);
     }
@@ -149,7 +167,8 @@ void *start_inotify(void *socket_ptr) {
     char currentPath[256];
 
     // Get the current working directory
-    if (getcwd(currentPath, sizeof(currentPath)) == NULL) {
+    if (getcwd(currentPath, sizeof(currentPath)) == NULL)
+    {
         perror("getcwd");
         exit(EXIT_FAILURE);
     }
@@ -159,7 +178,8 @@ void *start_inotify(void *socket_ptr) {
     PATH = (char *)malloc(pathLength);
 
     // Check for allocation failure
-    if (PATH == NULL) {
+    if (PATH == NULL)
+    {
         perror("malloc");
         exit(EXIT_FAILURE);
     }
@@ -173,7 +193,8 @@ void *start_inotify(void *socket_ptr) {
 
     // Add a watch for the directory
     watchFd = inotify_add_watch(inotifyFd, PATH, IN_MODIFY | IN_CLOSE_WRITE | IN_CREATE | IN_MOVED_FROM | IN_MOVED_TO | IN_DELETE);
-    if (watchFd == -1) {
+    if (watchFd == -1)
+    {
         perror("inotify_add_watch");
         exit(EXIT_FAILURE);
     }
@@ -181,7 +202,8 @@ void *start_inotify(void *socket_ptr) {
     printf("Watching for file modifications in the directory...\n");
 
     // Main event loop
-    while (1) {
+    while (1)
+    {
         handle_inotify_event(inotifyFd, socket);
     }
 
@@ -189,8 +211,54 @@ void *start_inotify(void *socket_ptr) {
     close(inotifyFd);
     // Don't forget to free the allocated memory
     free(PATH);
-    #endif
+#endif
     return NULL;
+}
+
+void *watch_server_changes(void *data_arg)
+{
+    thread_data_t *data = (thread_data_t *)data_arg;
+    int notification_socket = createSocket();
+    connectToServer(notification_socket, data->serv_addr);
+    packet_t *packet_watch = create_packet(CMD_WATCH_CHANGES, data->username, strlen(data->username) + 1);
+    packet_t *packet_buffer = malloc(sizeof(packet_t));
+    if (packet_buffer == NULL)
+    {
+        perror("ERROR allocating memory for packet\n");
+        return (void *)-1;
+    }
+
+    if (send_packet_to_socket(notification_socket, packet_watch) < 0)
+    {
+        perror("Failed to send watch changes socket");
+    }
+
+    while (1)
+    {
+        bzero(packet_buffer, sizeof(packet_t));
+        packet_buffer = receive_packet_wo_payload(notification_socket);
+        if (receive_packet_payload(notification_socket, packet_buffer) < 0)
+        {
+            perror("Failed to receive packet payload");
+            continue;
+        }
+
+        if (!packet_buffer)
+        {
+            printf("Error reading changes notification from socket\n");
+            continue;
+        }
+
+        if (packet_buffer->type != CMD_NOTIFY_CHANGES)
+        {
+            printf("Received unexpected packet. Expected CMD_NOTIFY_CHANGES\n");
+            continue;
+        }
+        else
+        {
+            download_file(packet_buffer->payload, data->data_socket);
+        }
+    }
 }
 
 int main(int argc, char *argv[])
@@ -218,7 +286,7 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    packet_t *packetUsername = create_packet(CMD_LOGIN, username_payload, strlen(username)+1);
+    packet_t *packetUsername = create_packet(CMD_LOGIN, username_payload, strlen(username) + 1);
 
     if (send_packet_to_socket(sockfd, packetUsername) < 0)
     {
@@ -256,11 +324,27 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
+    pthread_t server_changes_thread;
+
+    thread_data_t *notification_data = malloc(sizeof(thread_data_t));
+    notification_data->data_socket = sockfd;
+    notification_data->serv_addr = serv_addr;
+    notification_data->username = username;
+
+    if (pthread_create(&server_changes_thread, NULL, watch_server_changes, (void *)notification_data))
+    {
+        fprintf(stderr, "Erro ao criar thread userInterface.\n");
+        free(username_payload);
+        destroy_packet(packetUsername);
+        exit(EXIT_FAILURE);
+    }
+
     pthread_join(userInterfaceThread, NULL);
 
     close(sockfd);
 
     free(username_payload);
+    free(notification_data);
     destroy_packet(packetUsername);
 
     return 0;

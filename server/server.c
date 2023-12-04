@@ -39,6 +39,7 @@ void print_user_list(list_users_t *list);
 void free_user_list(list_users_t *list);
 
 // Funções relacionadas ao servidor
+int setup_notification_observer(int socket, char* username);
 int setupSocket(int *sockfd, int port);
 int handle_packet(thread_data_t *data_ptr, int *conn_closed);
 packet_t *receive_packet_from_socket(int socket);
@@ -342,6 +343,12 @@ int handle_packet(thread_data_t *data_ptr, int *conn_closed)
     case DATA:
         printf("DATA packet not expected\n");
         break;
+    case CMD_WATCH_CHANGES:
+        printf("WATCH_CHANGES packet not expected\n");
+        break;
+    case CMD_NOTIFY_CHANGES:
+        printf("NOTIFY_CHANGES packet not expected\n");
+        break;
     }
 
     return 0;
@@ -360,6 +367,11 @@ void create_folder(char username[50])
     {
         printf("Pasta %s criada.\n", user_dir);
     }
+}
+
+int setup_notification_observer(int socket, char* username)
+{
+    return ERROR;
 }
 
 void *handle_new_client_connection(void *args)
@@ -423,9 +435,17 @@ void *handle_new_client_connection(void *args)
                 }
                 continue;
             }
+            else if (packet_buffer->type == CMD_WATCH_CHANGES)
+            {
+                if (setup_notification_observer(socket, packet_buffer->payload) < 0)
+                {
+                    perror("Failed to setup user's notification observer");
+                }
+                continue;
+            }
             else
             {
-                printf("Expected first packet from client to be a CMD_LOGIN\n");
+                printf("Expected first packet from client to be a CMD_LOGIN or CMD_WATCH_CHANGES\n");
                 continue;
             }
         }

@@ -68,8 +68,10 @@ const char *get_packet_type_name(type_packet_t type)
         return "CMD_GET_SYNC_DIR";
     case CMD_EXIT:
         return "CMD_EXIT";
-    default:
-        return "UNKNOWN";
+    case CMD_WATCH_CHANGES:
+        return "CMD_WATCH_CHANGES";
+    case CMD_NOTIFY_CHANGES:
+        return "CMD_NOTIFY_CHANGES";
     }
 }
 

@@ -21,6 +21,8 @@ typedef enum {
     CMD_LIST_SERVER,
     CMD_LIST_CLIENT,
     CMD_GET_SYNC_DIR,
+    CMD_WATCH_CHANGES,
+    CMD_NOTIFY_CHANGES,
     CMD_EXIT
 } type_packet_t;
 
