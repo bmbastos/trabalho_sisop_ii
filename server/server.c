@@ -29,6 +29,7 @@ typedef struct list_of_users
 } list_users_t;
 
 list_users_t *users = NULL;
+pthread_mutex_t list_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 // Funções relacionadas à lista de usuários
 list_users_t *create_new_user(char *user_name, int user_socket);
@@ -334,7 +335,9 @@ int handle_packet(thread_data_t *data_ptr, int* conn_closed)
     case CMD_EXIT:
         send_connection_response(EXIT_SUCCESS, data->socket);
         *conn_closed = 1;
-        users = remove_user_connection(users, data->username, data->socket); // Verificar se seria assim a remoção
+        pthread_mutex_lock(&list_mutex);
+        users = remove_user_connection(users, data->username, data->socket);
+        pthread_mutex_unlock(&list_mutex);
         break;
     case DATA:
         printf("DATA packet not expected\n");
@@ -408,7 +411,9 @@ void *handle_new_client_connection(void *args)
                 strcat(path, username);
                 folderChecked = 1;
                 // Se existir a pasta do usuário no servidor, não cria uma nova, simplesmente faz sincronização && cria uma conexão na lista de conexões.
+                pthread_mutex_lock(&list_mutex);
                 users = insert_or_update_new_connection(users, username, socket, &conn_closed);
+                pthread_mutex_unlock(&list_mutex);
                 // Se não existir a pasta: cria e faz conexão com o servidor
 
                 if (conn_closed)
