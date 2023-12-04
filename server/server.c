@@ -112,6 +112,7 @@ list_users_t *insert_or_update_new_connection(list_users_t *list, char *username
                 else
                 {
                     list->socket[0] = user_socket;
+                    list->socketNotify[0] = 0;
                 }
             }
             else
@@ -125,6 +126,7 @@ list_users_t *insert_or_update_new_connection(list_users_t *list, char *username
                 else
                 {
                     list->socket[1] = user_socket;
+                    list->socketNotify[1] = 0;
                 }
             }
         }
@@ -364,8 +366,26 @@ int handle_packet(thread_data_t *data_ptr, int *conn_closed)
     return 0;
 }
 
+void get_socket_notify(const char *username, int result[2]) {
+    list_users_t *current = users;
+
+    result[0] = -1;
+    result[1] = -1;
+
+    while (current != NULL) {
+        // Check if the current user is the one we're looking for
+        if (strcmp(current->username, username) == 0) {
+            result[0] = current->socketNotify[0];
+            result[1] = current->socketNotify[1];
+            break;
+        }
+        current = current->next;
+    }
+}
+
 void send_changes_to_clients(char *username, int inotifyFd, int socket)
 {
+    printf("Startinggg to send\n");
     char buffer[4096];
     ssize_t len;
     char *ptr;
@@ -376,43 +396,30 @@ void send_changes_to_clients(char *username, int inotifyFd, int socket)
 
     int userSockets[2];
 
-    list_users_t *current = users;
-    while (current != NULL)
-    {
-        if (strcmp(current->username, username) == 0)
-        {
-            for (int i = 0; i < current->connections; ++i)
-            {
-                if (current->socketNotify[i] != 0)
-                {
-                    userSockets[i] = current->socketNotify[i];
-                }
-            }
-        }
-        current = current->next;
-    }
-
     while(1)
     {
         len = read(inotifyFd, buffer, sizeof(buffer));
 
         if (len <= 0)
-            break;
+            continue;
 
         for (ptr = buffer; ptr < buffer + len; ptr += sizeof(struct inotify_event) + event->len)
         {
             event = (const struct inotify_event *)ptr;
+            get_socket_notify(username, userSockets);
 
             if (event->mask & IN_CREATE)
             {
                 strcpy(filename, event->name);
                 printf("File %s created.\n", filename);
+                
                 for(int i = 0; i < 2; ++i)
                 {
                     if(userSockets[i] != 0)
                     {
                         packet_t *packet = create_packet(CMD_NOTIFY_CHANGES, filename, strlen(filename)+1);
                         send_packet_to_socket(userSockets[i], packet);
+                        print_packet(packet);
                         // send_file(userSockets[i], filename, filepath);
                     }
                 }
@@ -427,6 +434,7 @@ void send_changes_to_clients(char *username, int inotifyFd, int socket)
                     {
                         packet_t *packet = create_packet(CMD_NOTIFY_CHANGES, filename, strlen(filename)+1);
                         send_packet_to_socket(userSockets[i], packet);
+                        print_packet(packet);
                         // delete_file(userSockets[i], filename, filepath);
                     }
                 }
@@ -441,6 +449,7 @@ void send_changes_to_clients(char *username, int inotifyFd, int socket)
                     {
                         packet_t *packet = create_packet(CMD_NOTIFY_CHANGES, filename, strlen(filename)+1);
                         send_packet_to_socket(userSockets[i], packet);
+                        print_packet(packet);
                         // send_file(userSockets[i], filename, filepath);
                     }
                 }
@@ -466,7 +475,7 @@ int setup_notification_observer(int socket, char* username)
         return ERROR;
     }
 
-    watchFd = inotify_add_watch(inotifyFd, path, IN_CREATE | IN_DELETE | IN_MODIFY);
+    watchFd = inotify_add_watch(inotifyFd, path, IN_MODIFY | IN_CLOSE_WRITE | IN_CREATE | IN_MOVED_FROM | IN_MOVED_TO | IN_DELETE);
 
     if (watchFd == -1)
     {
@@ -479,6 +488,23 @@ int setup_notification_observer(int socket, char* username)
     while (1)
     {
         send_changes_to_clients(username, inotifyFd, socket);
+    }
+}
+
+void update_socket_notify(const char *username, int socket) {
+    list_users_t *current = users;
+
+    while (current != NULL) {
+        if (strcmp(current->username, username) == 0) {
+            if (!(current->socketNotify[0])) {
+                current->socketNotify[0] = socket;
+            }
+            else if (!(current->socketNotify[1] == 0)) {
+                current->socketNotify[1] = socket;
+            }
+            break;
+        }
+        current = current->next;
     }
 }
 
@@ -545,7 +571,8 @@ void *handle_new_client_connection(void *args)
             }
             else if (packet_buffer->type == CMD_WATCH_CHANGES)
             {
-                users = insert_or_update_new_connection(users, username, socket, &conn_closed, 1);
+                strcpy(username, packet_buffer->payload);
+                update_socket_notify(username, socket);
 
                 setup_notification_observer(socket, packet_buffer->payload);
                 // if (setup_notification_observer(socket, packet_buffer->payload) < 0)

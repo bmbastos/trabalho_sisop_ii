@@ -122,7 +122,6 @@ void handle_inotify_event(int fd, int sockfd, char* path)
             printf("File created: %s\n", event->name);
             strcat(currentPath, "/");
             strcat(currentPath, event->name);
-            printf("RESULTED IN PATH: %s", currentPath);
             upload_file(currentPath, sockfd);
         }
         if (event->mask & IN_MOVED_FROM)
@@ -135,7 +134,6 @@ void handle_inotify_event(int fd, int sockfd, char* path)
             printf("File moved to: %s\n", event->name);
             strcat(currentPath, "/");
             strcat(currentPath, event->name);
-            printf("RESULTED IN PATH: %s", currentPath);
             upload_file(currentPath, sockfd);
         }
         if (event->mask & IN_DELETE)
