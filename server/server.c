@@ -33,14 +33,14 @@ pthread_mutex_t list_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 // Funções relacionadas à lista de usuários
 list_users_t *create_new_user(char *user_name, int user_socket);
-list_users_t *insert_or_update_new_connection(list_users_t *list, char *username, int user_socket, int* conn_closed);
+list_users_t *insert_or_update_new_connection(list_users_t *list, char *username, int user_socket, int *conn_closed);
 list_users_t *remove_user_connection(list_users_t *list, char *user_name, int user_socket);
 void print_user_list(list_users_t *list);
 void free_user_list(list_users_t *list);
 
 // Funções relacionadas ao servidor
-int setupSocket(int *sockfd);
-int handle_packet(thread_data_t *data_ptr, int* conn_closed);
+int setupSocket(int *sockfd, int port);
+int handle_packet(thread_data_t *data_ptr, int *conn_closed);
 packet_t *receive_packet_from_socket(int socket);
 void create_folder(char username[50]);
 void *handle_new_client_connection(void *args);
@@ -48,7 +48,7 @@ void *handle_new_client_connection(void *args);
 // ===========================================================================================================================================================
 /*
  * FUNÇÕES RELACIONADAS À LISTA DE USUÁRIOS
-*/
+ */
 
 list_users_t *create_new_user(char *user_name, int user_socket)
 {
@@ -80,15 +80,16 @@ int send_connection_response(int response, int socket)
     char response_str[12];
     snprintf(response_str, sizeof(response_str), "%d", response);
 
-    const packet_t* login_response_packet = create_packet(DATA, response_str, strlen(response_str));
-    if (!login_response_packet) {
+    const packet_t *login_response_packet = create_packet(DATA, response_str, strlen(response_str));
+    if (!login_response_packet)
+    {
         return ERROR;
     }
 
     return send_packet_to_socket(socket, login_response_packet);
 }
 
-list_users_t *insert_or_update_new_connection(list_users_t *list, char *username, int user_socket, int* conn_closed)
+list_users_t *insert_or_update_new_connection(list_users_t *list, char *username, int user_socket, int *conn_closed)
 {
     if (list == NULL) // Lista está vazia: cria um novo usuário
     {
@@ -233,7 +234,7 @@ void free_user_list(list_users_t *list)
  * FUNÇÕES RELACIONADAS AO SERVIDOR
  */
 
-int setupSocket(int *sockfd)
+int setupSocket(int *sockfd, int port)
 {
     struct sockaddr_in serv_addr;
 
@@ -248,7 +249,7 @@ int setupSocket(int *sockfd)
         perror("setsockopt(SO_REUSEADDR) failed");
 
     serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons(PORT);
+    serv_addr.sin_port = htons(port);
     serv_addr.sin_addr.s_addr = INADDR_ANY;
     memset(&(serv_addr.sin_zero), 0, 8);
 
@@ -264,7 +265,7 @@ int setupSocket(int *sockfd)
         return -1;
     }
 
-    printf("Server is ready to accept connections.\n");
+    printf("Server is ready to accept connections on port %d.\n", port);
     return 0;
 }
 
@@ -274,7 +275,7 @@ int handle_login(int socket, const char *username)
     return ERROR;
 }
 
-int handle_packet(thread_data_t *data_ptr, int* conn_closed)
+int handle_packet(thread_data_t *data_ptr, int *conn_closed)
 {
     thread_data_t *data = data_ptr;
     int n;
@@ -464,7 +465,20 @@ int main(int argc, char *argv[])
     packet_t buffer;
     struct sockaddr_in cli_addr;
 
-    if (setupSocket(&sockfd) < 0)
+    int port = DEFAULT_PORT;
+
+    if (argc > 1)
+    {
+        int chosen_port = atoi(argv[1]);
+        if (chosen_port > 0) 
+        {
+            port = chosen_port;
+        } else {
+            printf("Invalid port. Starting server on default port.\n");
+        }
+    }
+
+    if (setupSocket(&sockfd, port) < 0)
     {
         exit(EXIT_FAILURE);
     }

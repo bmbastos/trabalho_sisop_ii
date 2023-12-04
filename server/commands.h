@@ -1,4 +1,4 @@
-#define PORT 4000
+#define DEFAULT_PORT 4000
 #define SERVER_FILE_PATH "./serverFiles/"
 #define SYNC_DIR_BASE_PATH "./sync_dir_"
 

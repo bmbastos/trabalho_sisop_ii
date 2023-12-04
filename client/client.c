@@ -15,11 +15,9 @@
 #include "../client/commands.h"
 #include "./interface.h"
 
-#define PORT 4000
-
 void printUsage()
 {
-    fprintf(stderr, "usage: ./client <username> <hostname>\n");
+    printf("Invalid arguments.\nUsage: ./client <username> <server_ip_address> <port>\n");
     exit(EXIT_FAILURE);
 }
 
@@ -54,11 +52,11 @@ void connectToServer(int sockfd, struct sockaddr_in serv_addr)
     }
 }
 
-struct sockaddr_in initializeServerAddress(struct hostent *server)
+struct sockaddr_in initializeServerAddress(struct hostent *server, int port)
 {
     struct sockaddr_in serv_addr;
     serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons(PORT);
+    serv_addr.sin_port = htons(port);
     serv_addr.sin_addr = *((struct in_addr *)server->h_addr);
     bzero(&(serv_addr.sin_zero), 8);
     return serv_addr;
@@ -187,7 +185,7 @@ void *start_inotify(void *socket_ptr) {
 
 int main(int argc, char *argv[])
 {
-    if (argc < 3)
+    if (argc < 4)
     {
         printUsage();
     }
@@ -195,7 +193,8 @@ int main(int argc, char *argv[])
 
     struct hostent *server = getServerHost(argv[2]);
 
-    struct sockaddr_in serv_addr = initializeServerAddress(server);
+    int port = atoi(argv[3]);
+    struct sockaddr_in serv_addr = initializeServerAddress(server, port);
 
     int sockfd = createSocket();
 
