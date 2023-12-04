@@ -60,7 +60,7 @@ int upload_file(const char *filepath, int socket) {
     return 0;
 }
 
-int download_file(const char *filename, int socket)
+int download_file(const char *filename, int socket, int on_sync_dir)
 {
     packet_t *packet = create_packet(CMD_DOWNLOAD, filename, strlen(filename)+1);
 
@@ -71,7 +71,13 @@ int download_file(const char *filename, int socket)
     }
 
     char file_path[270];
-    snprintf(file_path, sizeof(file_path), "%s/%s", DOWNLOADS_FILE_PATH, filename);
+    char basepath[50];
+    if (on_sync_dir)
+        strcpy(basepath, CLIENT_FILE_PATH);
+    else
+        strcpy(basepath, DOWNLOADS_FILE_PATH);
+        
+    snprintf(file_path, sizeof(file_path), "%s/%s", basepath, filename);
 
     FILE *file_ptr = fopen(file_path, "wb");
     if (file_ptr == NULL)

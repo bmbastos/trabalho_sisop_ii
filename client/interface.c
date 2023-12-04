@@ -9,7 +9,7 @@ int parse_input(char* input, int socket) {
         }
     } else if (strncmp(input, "download ", 9) == 0) {
         char* argument = input + 9;
-        if (download_file(argument, socket) < 0) {
+        if (download_file(argument, socket, 0) < 0) {
             perror("Error downloading file");
         }
     } else if (strncmp(input, "delete ", 7) == 0) {

@@ -256,7 +256,7 @@ void *watch_server_changes(void *data_arg)
         }
         else
         {
-            download_file(packet_buffer->payload, data->data_socket);
+            download_file(packet_buffer->payload, data->data_socket, 1);
         }
     }
 }
