@@ -86,7 +86,7 @@ int check_login_response(int socket)
     return ERROR;
 }
 
-void handle_inotify_event(int fd, int sockfd)
+void handle_inotify_event(int fd, int sockfd, char* path)
 {
 #ifdef __linux__
     char buffer[4096];
@@ -104,11 +104,7 @@ void handle_inotify_event(int fd, int sockfd)
         struct inotify_event *event = (struct inotify_event *)ptr;
 
         char currentPath[1024];
-
-        if (getcwd(currentPath, sizeof(currentPath)) == NULL)
-        {
-            perror("getcwd"); // indicate an error
-        }
+        strcpy(currentPath, path);
 
         if (event->mask & IN_CLOSE_WRITE)
         {
@@ -146,7 +142,6 @@ void handle_inotify_event(int fd, int sockfd)
             delete_file(event->name, sockfd);
         }
 
-        // Add more event checks if needed
         ptr += sizeof(struct inotify_event) + event->len;
     }
 #endif
@@ -220,7 +215,7 @@ void *start_inotify(void *threadArgsPtr) {
     // Main event loop
     while (1)
     {
-        handle_inotify_event(inotifyFd, socket);
+        handle_inotify_event(inotifyFd, socket, PATH);
     }
 
     // Close inotify descriptor when done (this part will not be reached in this example)

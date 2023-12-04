@@ -15,7 +15,7 @@ int upload_file(const char *filepath, int socket) {
         return ERROR;
     }
     filename++; // Avança um caractere para passar a barra
-
+    printf("FILEPATH: %s\n", filepath);
     size_t file_size = get_file_size(filepath);
     char *file_buffer = read_file_into_buffer(filepath);
     if (!file_buffer) {
