@@ -451,18 +451,10 @@ void send_changes_to_clients(char *username, int inotifyFd, int socket)
 
 int setup_notification_observer(int socket, char* username)
 {
-    char *path;
-    size_t path_len = strlen(DIR_FOLDER_PREFIX) + strlen(username) + 1;
+    char path[100] = "./";
 
-    path = malloc(path_len);
-    
-    if (path == NULL)
-    {
-        perror("ERROR allocating memory for path\n");
-        return ERROR;
-    }
-
-    snprintf(path, path_len, "./%s%s", DIR_FOLDER_PREFIX, username);
+    strcat(path, DIR_FOLDER_PREFIX);
+    strcat(path, username);
 
     int inotifyFd, watchFd;
 
