@@ -31,7 +31,7 @@ int send_file(int client_socket, const char *filename, const char *filepath)
         return -1;
     }
 
-    packet_t *packet = create_packet(CMD_DOWNLOAD, filename, strlen(filename));
+    packet_t *packet = create_packet(CMD_DOWNLOAD, filename, strlen(filename)+1);
 
     packet->payload = malloc(file_size);
     packet->length_payload = file_size;
@@ -122,7 +122,7 @@ int list_server(int client_socket, const char *userpath)
 
     printf("(server side debug) file_list: %s\n", file_list);
 
-    packet_t *packetFileList = create_packet(CMD_LIST_SERVER, file_list, strlen(file_list));
+    packet_t *packetFileList = create_packet(CMD_LIST_SERVER, file_list, strlen(file_list)+1);
 
     if (send_packet_to_socket(client_socket, packetFileList) < 0)
     {

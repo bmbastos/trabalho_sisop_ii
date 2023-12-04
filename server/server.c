@@ -80,9 +80,8 @@ int send_connection_response(int response, int socket)
     char response_str[12];
     snprintf(response_str, sizeof(response_str), "%d", response);
 
-    const packet_t *login_response_packet = create_packet(DATA, response_str, strlen(response_str));
-    if (!login_response_packet)
-    {
+    const packet_t* login_response_packet = create_packet(DATA, response_str, strlen(response_str)+1);
+    if (!login_response_packet) {
         return ERROR;
     }
 
