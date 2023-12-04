@@ -28,11 +28,6 @@ void printUsage()
     exit(EXIT_FAILURE);
 }
 
-struct INotifyThreadArgs {
-    const char *username;
-    int sockfd;
-};
-
 struct hostent *getServerHost(char *hostname)
 {
     struct hostent *server = gethostbyname(hostname);
@@ -152,18 +147,11 @@ void handle_inotify_event(int fd, int sockfd)
 #endif
 }
 
-// void *start_inotify(void *socket_ptr) {
-void *start_inotify(void *threadArgsPtr) {    
-    #ifdef __linux__
-    struct INotifyThreadArgs *threadArgs = (struct INotifyThreadArgs *)threadArgsPtr;
-    char username_array[strlen(threadArgs->username) + 1];
-    strcpy(username_array, threadArgs->username);
-
-    int socket = threadArgs->sockfd;
-
-    printf("\n\nthe username is: %s\n", username_array);
-
+void *start_inotify(void *socket_ptr)
+{
+#ifdef __linux__
     int inotifyFd, watchFd;
+    int socket = *((int *)socket_ptr);
 
     // Initialize inotify
     inotifyFd = inotify_init();
@@ -186,7 +174,7 @@ void *start_inotify(void *threadArgsPtr) {
     }
 
     // Allocate memory for the combined path
-    size_t pathLength = strlen(currentPath) + strlen("/sync_dir_") + strlen(username_array) + 1;
+    size_t pathLength = strlen(currentPath) + strlen("/sync_dir") + 1;
     PATH = (char *)malloc(pathLength);
 
     // Check for allocation failure
@@ -196,13 +184,9 @@ void *start_inotify(void *threadArgsPtr) {
         exit(EXIT_FAILURE);
     }
 
-    // printf("Current Path: %s\n", currentPath);
-    // printf("Current Path Length: %ld\n", strlen(currentPath));
-
     // Combine the paths
     strcpy(PATH, currentPath);
-    strcat(PATH, "/sync_dir_");
-    strcat(PATH, username_array);
+    strcat(PATH, "/sync_dir");
 
     // Now PATH contains the concatenated path
     printf("Concatenated Path: %s\n", PATH);
@@ -277,28 +261,6 @@ void *watch_server_changes(void *data_arg)
     }
 }
 
-void get_sync_dir(const char *username, int sockfd, char *username_payload, packet_t *packetUsername) {
-    char username_array[strlen(username) + 1];
-    strcpy(username_array, username);
-
-    create_folder(username_array);
-
-    struct INotifyThreadArgs threadArgs;
-    threadArgs.username = username;
-    threadArgs.sockfd = sockfd;
-
-    // THREAD INOTIFY
-    pthread_t start_inotifyThread;
-
-    if (pthread_create(&start_inotifyThread, NULL, start_inotify, (void *)&threadArgs))
-    {
-        fprintf(stderr, "Erro ao criar thread start_inotify.\n");
-        free(username_payload);
-        destroy_packet(packetUsername);
-        exit(EXIT_FAILURE);
-    }
-}
-
 int main(int argc, char *argv[])
 {
     if (argc < 4)
@@ -341,7 +303,16 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    get_sync_dir(username, sockfd, username_payload, packetUsername);
+    // THREAD INOTIFY
+    pthread_t start_inotifyThread;
+
+    if (pthread_create(&start_inotifyThread, NULL, start_inotify, (void *)&sockfd))
+    {
+        fprintf(stderr, "Erro ao criar thread start_inotify.\n");
+        free(username_payload);
+        destroy_packet(packetUsername);
+        exit(EXIT_FAILURE);
+    }
 
     pthread_t userInterfaceThread;
 
@@ -369,7 +340,7 @@ int main(int argc, char *argv[])
     }
 
     pthread_join(userInterfaceThread, NULL);
-
+    pthread_cancel(server_changes_thread);
     close(sockfd);
 
     free(username_payload);

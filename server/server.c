@@ -335,6 +335,9 @@ int handle_packet(thread_data_t *data_ptr, int *conn_closed)
     case DATA:
         printf("DATA packet not expected\n");
         break;
+    case CMD_GET_SYNC_DIR:
+        printf("GET_SYNC_DIR packet not expected\n");
+        break;
     case CMD_WATCH_CHANGES:
         printf("WATCH_CHANGES packet not expected\n");
         break;
