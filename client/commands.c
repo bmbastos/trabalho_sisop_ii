@@ -16,6 +16,13 @@ int upload_file(const char *filepath, int socket) {
     }
     filename++; // Avança um caractere para passar a barra
 
+    size_t file_size = get_file_size(filepath);
+    char *file_buffer = read_file_into_buffer(filepath);
+    if (!file_buffer) {
+        perror("Failed to read file into buffer\n");
+        return ERROR;
+    }
+
     packet_t *filename_packet = create_packet(CMD_UPLOAD, filename, strlen(filename)+1);
     if (!filename_packet) {
         perror("Failed to create filename packet\n");
@@ -29,14 +36,6 @@ int upload_file(const char *filepath, int socket) {
     }
 
     destroy_packet(filename_packet);
-
-
-    size_t file_size = get_file_size(filepath);
-    char *file_buffer = read_file_into_buffer(filepath);
-    if (!file_buffer) {
-        perror("Failed to read file into buffer\n");
-        return ERROR;
-    }
 
     packet_t *data_packet = create_packet(DATA, file_buffer, file_size);
     if (data_packet->length_payload == 0)
