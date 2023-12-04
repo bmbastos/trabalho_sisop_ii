@@ -88,6 +88,12 @@ void handle_inotify_event(int fd, int sockfd) {
     for (char *ptr = buffer; ptr < buffer + bytesRead; ) {
         struct inotify_event *event = (struct inotify_event *)ptr;
 
+        char currentPath[1024];
+
+        if (getcwd(currentPath, sizeof(currentPath)) == NULL) {
+            perror("getcwd"); // indicate an error
+        }   
+
         if (event->mask & IN_CLOSE_WRITE) {
             printf("File m_time has changed: %s\n", event->name);
             //DELETE(event->name);
@@ -100,7 +106,9 @@ void handle_inotify_event(int fd, int sockfd) {
 
         if (event->mask & IN_CREATE) {
             printf("File created: %s\n", event->name);
-            upload_file(event->name, sockfd);
+            strcat(currentPath, "/");
+            strcat(currentPath, event->name);
+            upload_file(currentPath, sockfd);
         }
         if (event->mask & IN_MOVED_FROM) {
             printf("File moved from: %s\n", event->name);
@@ -108,7 +116,9 @@ void handle_inotify_event(int fd, int sockfd) {
         }
         if (event->mask & IN_MOVED_TO) {
             printf("File moved to: %s\n", event->name);
-            upload_file(event->name, sockfd);
+            strcat(currentPath, "/");
+            strcat(currentPath, event->name);
+            upload_file(currentPath, sockfd);
         }
         if (event->mask & IN_DELETE) {
             printf("File moved to: %s\n", event->name);
@@ -208,7 +218,7 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    packet_t *packetUsername = create_packet(CMD_LOGIN, username_payload, strlen(username));
+    packet_t *packetUsername = create_packet(CMD_LOGIN, username_payload, strlen(username)+1);
 
     if (send_packet_to_socket(sockfd, packetUsername) < 0)
     {

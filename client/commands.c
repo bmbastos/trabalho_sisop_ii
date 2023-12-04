@@ -16,7 +16,7 @@ int upload_file(const char *filepath, int socket) {
     }
     filename++; // Avança um caractere para passar a barra
 
-    packet_t *filename_packet = create_packet(CMD_UPLOAD, filename, strlen(filename));
+    packet_t *filename_packet = create_packet(CMD_UPLOAD, filename, strlen(filename)+1);
     if (!filename_packet) {
         perror("Failed to create filename packet\n");
         return ERROR;
@@ -63,7 +63,7 @@ int upload_file(const char *filepath, int socket) {
 
 int download_file(const char *filename, int socket)
 {
-    packet_t *packet = create_packet(CMD_DOWNLOAD, filename, strlen(filename));
+    packet_t *packet = create_packet(CMD_DOWNLOAD, filename, strlen(filename)+1);
 
     if (send_packet_to_socket(socket, packet))
     {
@@ -107,7 +107,7 @@ int download_file(const char *filename, int socket)
 
 int delete_file(const char *filename, int socket)
 {
-    packet_t *packet = create_packet(CMD_DELETE, filename, strlen(filename));
+    packet_t *packet = create_packet(CMD_DELETE, filename, strlen(filename)+1);
 
     if (send_packet_to_socket(socket, packet) < 0)
     {
