@@ -385,7 +385,6 @@ void get_socket_notify(const char *username, int result[2]) {
 
 void send_changes_to_clients(char *username, int inotifyFd, int socket)
 {
-    printf("Startinggg to send\n");
     char buffer[4096];
     ssize_t len;
     char *ptr;
