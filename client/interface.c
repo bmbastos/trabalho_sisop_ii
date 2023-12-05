@@ -1,7 +1,7 @@
 #include "interface.h"
 
 // Retorna 1 se deve ser encerrada a interface com o servidor
-int parse_input(char* input, int socket) {
+int parse_input(char* input, int socket, char* username) {
     if (strncmp(input, "upload ", 7) == 0) {
         char* argument = input + 7;
         if (upload_file(argument, socket) < 0) {
@@ -9,7 +9,7 @@ int parse_input(char* input, int socket) {
         }
     } else if (strncmp(input, "download ", 9) == 0) {
         char* argument = input + 9;
-        if (download_file(argument, socket, 0) < 0) {
+        if (download_file(argument, socket, 0, username) < 0) {
             perror("Error downloading file");
         }
     } else if (strncmp(input, "delete ", 7) == 0) {
@@ -22,7 +22,7 @@ int parse_input(char* input, int socket) {
             perror("Error listing server files");
         }
     } else if (strcmp(input, "list_client") == 0) {
-        if (list_client(socket) < 0) {
+        if (list_client(socket, username) < 0) {
             perror("Error listing client files");
         }
     } else if (strcmp(input, "exit") == 0) {
@@ -57,11 +57,15 @@ void printOptionsMenu() {
     printf("Digite um comando: ");
 }
 
-void *userInterface(void  *socket_ptr)
+void *userInterface(void *args_ptr)
 {
+    if (!args_ptr)
+    {
+        printf(" COULD NOT RECEIVE ARG\n");
+    }
+    interface_data_t* data = (interface_data_t*)args_ptr;
     int shouldExit = 0;
-    int socket = *((int*)socket_ptr);
-
+    
     while (!shouldExit) {
         char input[50];
 
@@ -73,7 +77,7 @@ void *userInterface(void  *socket_ptr)
 
         if (input[0] != '\0')
         {
-            shouldExit = parse_input(input, socket);
+            shouldExit = parse_input(input, data->socket, data->username);
         }
     }
 

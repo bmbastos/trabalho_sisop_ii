@@ -9,7 +9,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#define SHOULD_PRINT_PACKETS 0
+#define SHOULD_PRINT_PACKETS 1
 #define ERROR -1
 #define SYNC_DIR_BASE_PATH "./sync_dir_"
 

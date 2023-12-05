@@ -7,7 +7,9 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <sys/stat.h>
+#ifdef __linux__
 #include <sys/inotify.h>
+#endif
 #include "../commons/commons.h"
 #include "./commands.h"
 
@@ -20,6 +22,12 @@ typedef struct
     char *username;
     int socket;
 } thread_data_t;
+
+typedef struct
+{
+    char *username;
+    int socket;
+} notify_data_t;
 
 typedef struct list_of_users
 {
@@ -41,7 +49,7 @@ void print_user_list(list_users_t *list);
 void free_user_list(list_users_t *list);
 
 // Funções relacionadas ao servidor
-int setup_notification_observer(int socket, char* username);
+void* setup_notification_observer(void* args);
 int setupSocket(int *sockfd, int port);
 int handle_packet(thread_data_t *data_ptr, int *conn_closed);
 packet_t *receive_packet_from_socket(int socket);
@@ -339,11 +347,8 @@ int handle_packet(thread_data_t *data_ptr, int *conn_closed)
         }
         break;
     case CMD_LIST_CLIENT:
-        if (list_client(data->socket) < 0)
-        {
-            perror("Error sending list of clients");
-            return ERROR;
-        }
+        perror("Unexpected list client command");
+        return ERROR;
         break;
     case CMD_EXIT:
         send_connection_response(EXIT_SUCCESS, data->socket);
@@ -361,7 +366,11 @@ int handle_packet(thread_data_t *data_ptr, int *conn_closed)
     case CMD_NOTIFY_CHANGES:
         printf("NOTIFY_CHANGES packet not expected\n");
         break;
+    case CMD_GET_SYNC_DIR:
+        printf("GET_SYNC_DIR packet not expected\n");
+        break;
     }
+    
 
     return 0;
 }
@@ -385,6 +394,7 @@ void get_socket_notify(const char *username, int result[2]) {
 
 void send_changes_to_clients(char *username, int inotifyFd, int socket)
 {
+    #ifdef __linux__
     char buffer[4096];
     ssize_t len;
     char *ptr;
@@ -455,14 +465,18 @@ void send_changes_to_clients(char *username, int inotifyFd, int socket)
             }
         }
     }
+    #endif
 }
 
-int setup_notification_observer(int socket, char* username)
+void* setup_notification_observer(void* args)
 {
+    #ifdef __linux__
+    notify_data_t* data = (notify_data_t*)args;
+
     char path[100] = "./";
 
     strcat(path, DIR_FOLDER_PREFIX);
-    strcat(path, username);
+    strcat(path, data->username);
 
     int inotifyFd, watchFd;
 
@@ -471,7 +485,7 @@ int setup_notification_observer(int socket, char* username)
     if (inotifyFd == -1)
     {
         perror("inotify_init");
-        return ERROR;
+        return (void*)ERROR;
     }
 
     watchFd = inotify_add_watch(inotifyFd, path, IN_MODIFY | IN_CLOSE_WRITE | IN_CREATE | IN_MOVED_FROM | IN_MOVED_TO | IN_DELETE);
@@ -479,15 +493,17 @@ int setup_notification_observer(int socket, char* username)
     if (watchFd == -1)
     {
         perror("inotify_add_watch");
-        return ERROR;
+        return (void*)ERROR;
     }
 
     printf("Watching for file modifications in the server directory...\n");
 
     while (1)
     {
-        send_changes_to_clients(username, inotifyFd, socket);
+        send_changes_to_clients(data->username, inotifyFd, data->socket);
     }
+    #endif
+    return (void*)0;
 }
 
 void update_socket_notify(const char *username, int socket) {
@@ -547,44 +563,38 @@ void *handle_new_client_connection(void *args)
             break;
         }
 
-        if (folderChecked == 0)
+        if (packet_buffer->type == CMD_LOGIN)
         {
-            if (packet_buffer->type == CMD_LOGIN)
-            {
-                strcpy(username, packet_buffer->payload);
-                create_folder(username);
-                strcat(path, username);
-                folderChecked = 1;
-                // Se existir a pasta do usuário no servidor, não cria uma nova, simplesmente faz sincronização && cria uma conexão na lista de conexões.
-                pthread_mutex_lock(&list_mutex);
-                users = insert_or_update_new_connection(users, username, socket, &conn_closed, 0);
-                pthread_mutex_unlock(&list_mutex);
-                // Se não existir a pasta: cria e faz conexão com o servidor
+            strcpy(username, packet_buffer->payload);
+            create_folder(username);
+            strcat(path, username);
+            folderChecked = 1;
+            // Se existir a pasta do usuário no servidor, não cria uma nova, simplesmente faz sincronização && cria uma conexão na lista de conexões.
+            pthread_mutex_lock(&list_mutex);
+            users = insert_or_update_new_connection(users, username, socket, &conn_closed, 0);
+            pthread_mutex_unlock(&list_mutex);
+            // Se não existir a pasta: cria e faz conexão com o servidor
 
-                if (conn_closed)
-                {
-                    printf("Conexão recusada.\n");
-                    break;
-                }
-                continue;
-            }
-            else if (packet_buffer->type == CMD_WATCH_CHANGES)
+            if (conn_closed)
             {
-                strcpy(username, packet_buffer->payload);
-                update_socket_notify(username, socket);
+                printf("Conexão recusada.\n");
+                break;
+            }
+            continue;
+        }
+        
 
-                setup_notification_observer(socket, packet_buffer->payload);
-                // if (setup_notification_observer(socket, packet_buffer->payload) < 0)
-                // {
-                    // perror("Failed to setup user's notification observer");
-                // }
-                continue;
-            }
-            else
-            {
-                printf("Expected first packet from client to be a CMD_LOGIN or CMD_WATCH_CHANGES\n");
-                continue;
-            }
+        if (packet_buffer->type == CMD_WATCH_CHANGES)
+        {
+            strcpy(username, packet_buffer->payload);
+            update_socket_notify(username, socket);
+            pthread_t notify_thread;
+            notify_data_t* notify_data = malloc(sizeof(notify_data_t));
+            notify_data->socket = socket;
+            notify_data->username = packet_buffer->payload;
+
+            pthread_create(&notify_thread, NULL, setup_notification_observer, (void*)notify_data);
+            continue;
         }
 
         thread_data_t *thread_data = malloc(sizeof(thread_data_t));

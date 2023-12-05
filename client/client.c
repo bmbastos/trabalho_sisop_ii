@@ -18,7 +18,7 @@
 typedef struct thread_data
 {
     struct sockaddr_in serv_addr;
-    const char *username;
+    char username[100];
     int data_socket;
 } thread_data_t;
 
@@ -267,7 +267,7 @@ void *watch_server_changes(void *data_arg)
         }
         else
         {
-            download_file(packet_buffer->payload, data->data_socket, 1);
+            download_file(packet_buffer->payload, data->data_socket, 1, data->username);
         }
     }
 }
@@ -340,7 +340,11 @@ int main(int argc, char *argv[])
 
     pthread_t userInterfaceThread;
 
-    if (pthread_create(&userInterfaceThread, NULL, userInterface, (void *)&sockfd))
+    interface_data_t* interf_data = malloc(sizeof(interface_data_t));
+    interf_data->socket = sockfd;
+    strcpy(interf_data->username, username);
+
+    if (pthread_create(&userInterfaceThread, NULL, userInterface, (void *)interf_data))
     {
         fprintf(stderr, "Erro ao criar thread userInterface.\n");
         free(username_payload);
@@ -353,8 +357,8 @@ int main(int argc, char *argv[])
     thread_data_t *notification_data = malloc(sizeof(thread_data_t));
     notification_data->data_socket = sockfd;
     notification_data->serv_addr = serv_addr;
-    notification_data->username = username;
-
+    strcpy(notification_data->username, username);
+    
     if (pthread_create(&server_changes_thread, NULL, watch_server_changes, (void *)notification_data))
     {
         fprintf(stderr, "Erro ao criar thread userInterface.\n");
@@ -368,7 +372,7 @@ int main(int argc, char *argv[])
     close(sockfd);
 
     free(username_payload);
-    free(notification_data);
+    // free(notification_data);
     destroy_packet(packetUsername);
 
     return 0;

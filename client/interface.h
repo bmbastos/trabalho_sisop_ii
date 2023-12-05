@@ -14,7 +14,12 @@
 #define MAX_MESSAGE_LENGTH 100
 #define BUFFER_SIZE 1024
 
-void *userInterface(void *sockfd);
+typedef struct interface_data {
+    int socket;
+    char username[50];
+} interface_data_t;
+
+void *userInterface(void *args_ptr);
 int send_command_to_socket(int socket, const char *command, const char *argument);
 void handleDownload(const char *filename, int sockfd);
 

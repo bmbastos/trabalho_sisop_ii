@@ -4,16 +4,16 @@
 #include <sys/select.h>
 #include "../commons/commons.h"
 
-#define CLIENT_FILE_PATH "./sync_dir/"
+#define CLIENT_FILE_PATH "./sync_dir_"
 #define DOWNLOADS_FILE_PATH "./downloads/"
 #define READ_TIMEOUT 10
 
 // COMANDOS PRINCIPAIS
 int upload_file(const char* filename, int socket);
-int download_file(const char* filename, int socket, int on_sync_dir);
+int download_file(const char* filename, int socket, int on_sync_dir, const char* user);
 int delete_file(const char* filename, int socket);
 int list_server(int socket);
-int list_client(int socket);
+int list_client(int socket, char* user);
 int close_connection(int socket);
 
 // COMANDOS AUXILIARES

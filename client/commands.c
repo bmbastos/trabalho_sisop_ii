@@ -1,6 +1,7 @@
 #include "./commands.h"
 #include "./interface.h"
 #include <sys/select.h>
+#include <sys/stat.h>
 
 int upload_file(const char *filepath, int socket) {
     if (filepath == NULL) {
@@ -60,7 +61,7 @@ int upload_file(const char *filepath, int socket) {
     return 0;
 }
 
-int download_file(const char *filename, int socket, int on_sync_dir)
+int download_file(const char *filename, int socket, int on_sync_dir, const char* user)
 {
     packet_t *packet = create_packet(CMD_DOWNLOAD, filename, strlen(filename)+1);
 
@@ -72,10 +73,19 @@ int download_file(const char *filename, int socket, int on_sync_dir)
 
     char file_path[270];
     char basepath[50];
+
+    mkdir(DOWNLOADS_FILE_PATH, 0777);
+
     if (on_sync_dir)
+    {
         strcpy(basepath, CLIENT_FILE_PATH);
+        strcat(basepath, user);
+    }
+        
     else
+    {
         strcpy(basepath, DOWNLOADS_FILE_PATH);
+    }
         
     snprintf(file_path, sizeof(file_path), "%s/%s", basepath, filename);
 
@@ -149,11 +159,11 @@ int list_server(int socket)
     return 0;
 }
 
-int list_client(int socket)
+int list_client(int socket, char* user)
 {
     char file_list[2048] = "";
-    const char *basepath = CLIENT_FILE_PATH;
-
+    char basepath[100] = CLIENT_FILE_PATH;
+    strcat(basepath, user);
     get_file_metadata_list(basepath, file_list);
 
     printf("(CLIENT side debug) file_list client: %s\n", file_list);

@@ -107,12 +107,6 @@ int delete_file(int client_socket, const char *filename, const char *filepath)
     return 1;
 }
 
-int list_client(int socket)
-{
-    perror("To be implemented");
-    return ERROR;
-}
-
 int list_server(int client_socket, const char *userpath)
 {
     char file_list[2048] = "";
