@@ -13,7 +13,7 @@ int upload_file(const char* filename, int socket);
 int download_file(const char* filename, int socket, int on_sync_dir, const char* user);
 int delete_file(const char* filename, int socket);
 int list_server(int socket);
-int list_client(int socket, char* user);
+int list_client(int socket, const char* user);
 int close_connection(int socket);
 
 // COMANDOS AUXILIARES

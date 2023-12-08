@@ -188,7 +188,7 @@ list_users_t *remove_user_connection(list_users_t *list, char *user_name, int us
                     // Remove a conexão
                     current->connections -= 1;
                     current->socket[i] = 0;
-
+                    close(user_socket);
                     // Se não houver mais conexões, remova o usuário da lista
                     if (current->connections == 0)
                     {
@@ -198,6 +198,7 @@ list_users_t *remove_user_connection(list_users_t *list, char *user_name, int us
                             list = current->next;
                             free(current->username);
                             free(current);
+                            users = list;
                             return list;
                         }
                         else
@@ -206,10 +207,12 @@ list_users_t *remove_user_connection(list_users_t *list, char *user_name, int us
                             previous->next = current->next;
                             free(current->username);
                             free(current);
+                            users = list;
                             return list;
                         }
                     }
 
+                    users = list;
                     return list;
                 }
             }
@@ -584,18 +587,18 @@ void *handle_new_client_connection(void *args)
         }
         
 
-        if (packet_buffer->type == CMD_WATCH_CHANGES)
-        {
-            strcpy(username, packet_buffer->payload);
-            update_socket_notify(username, socket);
-            pthread_t notify_thread;
-            notify_data_t* notify_data = malloc(sizeof(notify_data_t));
-            notify_data->socket = socket;
-            notify_data->username = packet_buffer->payload;
+        // if (packet_buffer->type == CMD_WATCH_CHANGES)
+        // {
+        //     strcpy(username, packet_buffer->payload);
+        //     update_socket_notify(username, socket);
+        //     pthread_t notify_thread;
+        //     notify_data_t* notify_data = malloc(sizeof(notify_data_t));
+        //     notify_data->socket = socket;
+        //     notify_data->username = packet_buffer->payload;
 
-            pthread_create(&notify_thread, NULL, setup_notification_observer, (void*)notify_data);
-            continue;
-        }
+        //     pthread_create(&notify_thread, NULL, setup_notification_observer, (void*)notify_data);
+        //     continue;
+        // }
 
         thread_data_t *thread_data = malloc(sizeof(thread_data_t));
         if (thread_data == NULL)

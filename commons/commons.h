@@ -33,6 +33,11 @@ typedef struct packet {
     char* payload;
 } packet_t;
 
+struct ThreadArgs {
+    const char *username;
+    int socket;
+};
+
 packet_t* create_packet(type_packet_t type, const char* payload, int payload_length);
 void destroy_packet(packet_t* packet);
 const char* get_packet_type_name(type_packet_t type);

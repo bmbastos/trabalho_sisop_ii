@@ -28,11 +28,6 @@ void printUsage()
     exit(EXIT_FAILURE);
 }
 
-struct INotifyThreadArgs {
-    const char *username;
-    int sockfd;
-};
-
 struct hostent *getServerHost(char *hostname)
 {
     struct hostent *server = gethostbyname(hostname);
@@ -150,11 +145,11 @@ void handle_inotify_event(int fd, int sockfd, char* path)
 // void *start_inotify(void *socket_ptr) {
 void *start_inotify(void *threadArgsPtr) {    
     #ifdef __linux__
-    struct INotifyThreadArgs *threadArgs = (struct INotifyThreadArgs *)threadArgsPtr;
+    struct ThreadArgs *threadArgs = (struct ThreadArgs *)threadArgsPtr;
     char username_array[strlen(threadArgs->username) + 1];
     strcpy(username_array, threadArgs->username);
 
-    int socket = threadArgs->sockfd;
+    int socket = threadArgs->socket;
 
     printf("\n\nthe username is: %s\n", username_array);
 
@@ -278,20 +273,20 @@ void get_sync_dir(const char *username, int sockfd, char *username_payload, pack
 
     create_folder(username_array);
 
-    struct INotifyThreadArgs threadArgs;
-    threadArgs.username = username;
-    threadArgs.sockfd = sockfd;
+    // struct ThreadArgs threadArgs;
+    // threadArgs.username = username;
+    // threadArgs.socket = sockfd;
 
-    // THREAD INOTIFY
-    pthread_t start_inotifyThread;
+    // // THREAD INOTIFY
+    // pthread_t start_inotifyThread;
 
-    if (pthread_create(&start_inotifyThread, NULL, start_inotify, (void *)&threadArgs))
-    {
-        fprintf(stderr, "Erro ao criar thread start_inotify.\n");
-        free(username_payload);
-        destroy_packet(packetUsername);
-        exit(EXIT_FAILURE);
-    }
+    // if (pthread_create(&start_inotifyThread, NULL, start_inotify, (void *)&threadArgs))
+    // {
+    //     fprintf(stderr, "Erro ao criar thread start_inotify.\n");
+    //     free(username_payload);
+    //     destroy_packet(packetUsername);
+    //     exit(EXIT_FAILURE);
+    // }
 }
 
 int main(int argc, char *argv[])
@@ -340,11 +335,11 @@ int main(int argc, char *argv[])
 
     pthread_t userInterfaceThread;
 
-    interface_data_t* interf_data = malloc(sizeof(interface_data_t));
-    interf_data->socket = sockfd;
-    strcpy(interf_data->username, username);
+    struct ThreadArgs interf_data;
+    interf_data.username = username;
+    interf_data.socket = sockfd;
 
-    if (pthread_create(&userInterfaceThread, NULL, userInterface, (void *)interf_data))
+    if (pthread_create(&userInterfaceThread, NULL, userInterface, (void *)&interf_data))
     {
         fprintf(stderr, "Erro ao criar thread userInterface.\n");
         free(username_payload);
@@ -352,21 +347,22 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    pthread_t server_changes_thread;
+    // pthread_t server_changes_thread;
 
-    thread_data_t *notification_data = malloc(sizeof(thread_data_t));
-    notification_data->data_socket = sockfd;
-    notification_data->serv_addr = serv_addr;
-    strcpy(notification_data->username, username);
+    // thread_data_t *notification_data = malloc(sizeof(thread_data_t));
+    // notification_data->data_socket = sockfd;
+    // notification_data->serv_addr = serv_addr;
+    // strcpy(notification_data->username, username);
     
-    if (pthread_create(&server_changes_thread, NULL, watch_server_changes, (void *)notification_data))
-    {
-        fprintf(stderr, "Erro ao criar thread userInterface.\n");
-        free(username_payload);
-        destroy_packet(packetUsername);
-        exit(EXIT_FAILURE);
-    }
+    // if (pthread_create(&server_changes_thread, NULL, watch_server_changes, (void *)notification_data))
+    // {
+    //     fprintf(stderr, "Erro ao criar thread userInterface.\n");
+    //     free(username_payload);
+    //     destroy_packet(packetUsername);
+    //     exit(EXIT_FAILURE);
+    // }
 
+    // pthread_join(server_changes_thread, NULL);
     pthread_join(userInterfaceThread, NULL);
 
     close(sockfd);

@@ -1,7 +1,7 @@
 #include "interface.h"
 
 // Retorna 1 se deve ser encerrada a interface com o servidor
-int parse_input(char* input, int socket, char* username) {
+int parse_input(char* input, int socket, const char* username) {
     if (strncmp(input, "upload ", 7) == 0) {
         char* argument = input + 7;
         if (upload_file(argument, socket) < 0) {
@@ -63,7 +63,8 @@ void *userInterface(void *args_ptr)
     {
         printf(" COULD NOT RECEIVE ARG\n");
     }
-    interface_data_t* data = (interface_data_t*)args_ptr;
+
+    struct ThreadArgs *threadArgs = (struct ThreadArgs *)args_ptr;
     int shouldExit = 0;
     
     while (!shouldExit) {
@@ -77,7 +78,7 @@ void *userInterface(void *args_ptr)
 
         if (input[0] != '\0')
         {
-            shouldExit = parse_input(input, data->socket, data->username);
+            shouldExit = parse_input(input, threadArgs->socket, threadArgs->username);
         }
     }
 

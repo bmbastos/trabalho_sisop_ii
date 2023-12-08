@@ -159,7 +159,7 @@ int list_server(int socket)
     return 0;
 }
 
-int list_client(int socket, char* user)
+int list_client(int socket, const char* user)
 {
     char file_list[2048] = "";
     char basepath[100] = CLIENT_FILE_PATH;
