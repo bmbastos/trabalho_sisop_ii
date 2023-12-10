@@ -39,11 +39,12 @@ int upload_file(const char *filepath, int socket) {
     destroy_packet(filename_packet);
 
     packet_t *data_packet = create_packet(DATA, file_buffer, file_size);
-    if (data_packet->length_payload == 0)
-    {
-        perror("Packet is malformed\n");
-        return ERROR;
-    }
+
+    // if (data_packet->length_payload == 0)
+    // {
+    //     perror("Packet is malformed\n");
+    //     return ERROR;
+    // }
     free(file_buffer);
 
     if (!data_packet) {

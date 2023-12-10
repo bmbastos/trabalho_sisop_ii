@@ -24,7 +24,10 @@ typedef enum {
     CMD_GET_SYNC_DIR,
     CMD_WATCH_CHANGES,
     CMD_NOTIFY_CHANGES,
-    CMD_EXIT
+    CMD_EXIT,
+    INITIAL_SYNC,
+    FINISH_INITIAL_SYNC,
+    FILE_LIST
 } type_packet_t;
 
 typedef struct packet {

@@ -585,7 +585,20 @@ void *handle_new_client_connection(void *args)
             }
             continue;
         }
-        
+
+        if (packet_buffer->type == INITIAL_SYNC)
+        {   
+            strcpy(username, packet_buffer->payload);
+
+            send_files(socket, path);
+
+            if (conn_closed)
+            {
+                printf("Conexão recusada.\n");
+                break;
+            }
+            continue;
+        }
 
         // if (packet_buffer->type == CMD_WATCH_CHANGES)
         // {
@@ -624,8 +637,6 @@ void *handle_new_client_connection(void *args)
     free(packet_buffer);
     return (void *)0;
 }
-
-// =============================================================================== MAIN ======================================================================
 
 int main(int argc, char *argv[])
 {
@@ -668,6 +679,7 @@ int main(int argc, char *argv[])
         pthread_t thread;
         int *sock_ptr = malloc(sizeof(int));
         *sock_ptr = newsockfd;
+
         if (pthread_create(&thread, NULL, handle_new_client_connection, sock_ptr) < 0)
         {
             perror("ERROR creating thread");

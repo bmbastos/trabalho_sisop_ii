@@ -72,6 +72,10 @@ const char *get_packet_type_name(type_packet_t type)
         return "CMD_WATCH_CHANGES";
     case CMD_NOTIFY_CHANGES:
         return "CMD_NOTIFY_CHANGES";
+    case INITIAL_SYNC:
+        return "INITIAL_SYNC";
+    case FILE_LIST:
+        return "FILE_LIST";
     }
 }
 
