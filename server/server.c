@@ -17,14 +17,6 @@
 
 typedef struct
 {
-    packet_t packet;
-    char userpath[50];
-    char *username;
-    int socket;
-} thread_data_t;
-
-typedef struct
-{
     char *username;
     int socket;
 } notify_data_t;
@@ -308,9 +300,11 @@ int handle_login(int socket, const char *username)
 int handle_packet(thread_data_t *data_ptr, int *conn_closed)
 {
     thread_data_t *data = data_ptr;
-    int n;
+    free(data_ptr);
+
     packet_t packet = data->packet;
     type_packet_t cmd = packet.type;
+    int n;
 
     switch (cmd)
     {
@@ -622,8 +616,8 @@ void *handle_new_client_connection(void *args)
 
         thread_data->packet = *packet_buffer;
         thread_data->socket = socket;
-        thread_data->username = username;
-        strcpy(thread_data->userpath, path);
+        thread_data->username = strdup(username);
+        thread_data->userpath = strdup(path);
 
         printf("Received packet:\n");
         print_packet(packet_buffer);

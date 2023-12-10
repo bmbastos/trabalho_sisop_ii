@@ -17,13 +17,6 @@
 #include "../client/commands.h"
 #include "./interface.h"
 
-typedef struct thread_data
-{
-    struct sockaddr_in serv_addr;
-    char username[100];
-    int data_socket;
-} thread_data_t;
-
 void printUsage()
 {
     printf("Invalid arguments.\nUsage: ./client <username> <server_ip_address> <port>\n");
@@ -388,6 +381,7 @@ void *start_inotify(void *threadArgsPtr) {
 void *watch_server_changes(void *data_arg)
 {
     thread_data_t *data = (thread_data_t *)data_arg;
+    free(data_arg);
     int notification_socket = createSocket();
     connectToServer(notification_socket, data->serv_addr);
     packet_t *packet_watch = create_packet(CMD_WATCH_CHANGES, data->username, strlen(data->username) + 1);
@@ -426,7 +420,7 @@ void *watch_server_changes(void *data_arg)
         }
         else
         {
-            download_file(packet_buffer->payload, data->data_socket, 1, data->username);
+            download_file(packet_buffer->payload, data->socket, 1, data->username);
         }
     }
 }
@@ -523,7 +517,7 @@ int main(int argc, char *argv[])
     pthread_t userInterfaceThread;
 
     struct ThreadArgs interf_data;
-    interf_data.username = username;
+    interf_data.username = strdup(username);
     interf_data.socket = sockfd;
 
     if (pthread_create(&userInterfaceThread, NULL, userInterface, (void *)&interf_data))
