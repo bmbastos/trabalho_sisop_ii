@@ -167,7 +167,13 @@ int list_client(int socket, const char* user)
     strcat(basepath, user);
     get_file_metadata_list(basepath, file_list);
 
-    printf("(CLIENT side debug) file_list client: %s\n", file_list);
+    if(strcmp(file_list, "") == 0) {
+        printf("List client is empty!\n");
+    }
+    else
+    {
+        printf("(CLIENT side debug) file_list client: %s\n", file_list);
+    }
 
     return 0;
 }
