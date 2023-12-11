@@ -89,12 +89,14 @@ void handle_inotify_event(int fd, int sockfd, char* path)
         buffer = realloc(buffer, bufferSize + chunkSize);  // Expand buffer
         if (buffer == NULL) {
             perror("realloc");
+            free(buffer);
             exit(EXIT_FAILURE);
         }
 
         bytesRead = read(fd, buffer + totalBytesRead, chunkSize);
         if (bytesRead == -1) {
             perror("read");
+            free(buffer);
             exit(EXIT_FAILURE);
         }
 
@@ -275,6 +277,7 @@ void *handleInitialSync(void *threadArgsPtr)
     }
 
     for (int i = 0; i < client_file_count; ++i) {
+        char tempPath[1024];
         int found = 0;
         for (int j = 0; j < file_count; ++j) {
             if (strcmp(client_filenames[i], filenames[j]) == 0) {
@@ -283,14 +286,9 @@ void *handleInitialSync(void *threadArgsPtr)
             }
         }
         if (!found) {
-            strcpy(PATH, currentPath);
-            strcat(PATH, "/sync_dir_");
-            strcat(PATH, username_array);
+            snprintf(tempPath, sizeof(tempPath), "%s/sync_dir_%s/%s", currentPath, username_array, client_filenames[i]);
             printf("Arquivo no Cliente não encontrado no Servidor: %s\n", client_filenames[i]);
-            // delete_file(client_filenames[i], socket);
-            strcat(PATH, "/");
-            strcat(PATH, client_filenames[i]);
-            upload_file(PATH, socket);
+            upload_file(tempPath, socket);
         }
     }
 
@@ -446,6 +444,8 @@ void get_sync_dir(const char *username, int sockfd) {
         free(initialSyncArgs);
         exit(EXIT_FAILURE);
     }
+
+    printf("\nestamos de volta\n");
 
     if (pthread_join(initialSyncThread, NULL))
     {
