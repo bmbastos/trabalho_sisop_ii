@@ -25,13 +25,6 @@ int send_file(int client_socket, const char *filename, const char *filepath)
     long file_size = ftell(file);
     fseek(file, 0, SEEK_SET);
 
-    if (file_size <= 0)
-    {
-        printf("ERROR: Arquivo não existe ou vazio.\n");
-        fclose(file);
-        return -1;
-    }
-
     packet_t *packet = create_packet(CMD_DOWNLOAD, filename, strlen(filename)+1);
 
     packet->payload = malloc(file_size);

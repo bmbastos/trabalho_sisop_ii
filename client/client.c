@@ -81,7 +81,7 @@ int check_login_response(int socket)
     return ERROR;
 }
 
-void handle_inotify_event(int fd, int data_socket, char* path)
+void handle_inotify_event(int fd, int data_socket, char* path, const char *username)
 {
 #ifdef __linux__
     ssize_t bytesRead;
@@ -137,7 +137,7 @@ void handle_inotify_event(int fd, int data_socket, char* path)
         if (event->mask & IN_MOVED_FROM)
         {
             printf("\n[CLIENT - LOG]\tArquivo retirado da sync_dir: %s\n", event->name);
-            delete_file(event->name, data_socket);
+            delete_file(event->name, data_socket, username);
         }
         if (event->mask & IN_MOVED_TO)
         {
@@ -149,7 +149,7 @@ void handle_inotify_event(int fd, int data_socket, char* path)
         if (event->mask & IN_DELETE)
         {
             printf("\n[CLIENT - LOG]\tArquivo deletado: %s\n", event->name);
-            delete_file(event->name, data_socket);
+            delete_file(event->name, data_socket, username);
         }
 
         ptr += sizeof(struct inotify_event) + event->len;
@@ -304,22 +304,6 @@ void *handleInitialSync(void *threadArgsPtr)
     return NULL;
 }
 
-void delete_local_file(const char *filename, const char *username, const char *filepath)
-{
-    char file_path[1024];
-    snprintf(file_path, sizeof(file_path), "%s/sync_dir_%s/%s", filepath, username, filename);
-
-    printf("file path delete : %s\n", file_path);
-
-    if (remove(file_path) != 0)
-    {
-        perror("Error deleting file");
-        return;
-    }
-
-    printf("File %s deleted successfully.\n", filename);
-}
-
 // void *start_inotify(void *socket_ptr) {
 void *start_inotify(void *threadArgsPtr) {    
     #ifdef __linux__
@@ -389,7 +373,7 @@ void *start_inotify(void *threadArgsPtr) {
     // Main event loop
     while (1)
     {
-        handle_inotify_event(inotifyFd, socket, PATH);
+        handle_inotify_event(inotifyFd, socket, PATH, threadArgs->username);
     }
 
     // Close inotify descriptor when done (this part will not be reached in this example)

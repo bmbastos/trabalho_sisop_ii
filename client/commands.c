@@ -121,7 +121,7 @@ int download_file(const char *filename, int socket, int on_sync_dir, const char*
     return 0;
 }
 
-int delete_file(const char *filename, int socket)
+int delete_file(const char *filename, int socket, const char* username)
 {
     packet_t *packet = create_packet(CMD_DELETE, filename, strlen(filename)+1);
 
@@ -131,7 +131,33 @@ int delete_file(const char *filename, int socket)
         return ERROR;
     }
 
+    char currentPath[256];
+
+    if (getcwd(currentPath, sizeof(currentPath)) == NULL)
+    {
+        perror("getcwd");
+        exit(EXIT_FAILURE);
+    }
+
+    delete_local_file(filename, username, currentPath);
+
     return 0;
+}
+
+void delete_local_file(const char *filename, const char *username, const char *filepath)
+{
+    char file_path[1024];
+    snprintf(file_path, sizeof(file_path), "%s/sync_dir_%s/%s", filepath, username, filename);
+
+    printf("file path delete : %s\n", file_path);
+
+    if (remove(file_path) != 0)
+    {
+        perror("Error deleting file");
+        return;
+    }
+
+    printf("File %s deleted successfully.\n", filename);
 }
 
 int list_server(int socket)
