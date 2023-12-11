@@ -482,6 +482,8 @@ void *handle_new_client_connection(void *args)
             continue;
         }
 
+        // printf("\nINITIAL SYNC: %d\n", packet_buffer->type);
+
         if (packet_buffer->type == INITIAL_SYNC)
         {   
             strcpy(username, packet_buffer->payload);

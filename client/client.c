@@ -20,6 +20,7 @@
 struct sockaddr_in serv_addr;
 int data_socket;
 void get_sync_dir(const char *username, int data_socket);
+void delete_local_file(const char *filename, const char *username, const char *filepath);
 
 void printUsage()
 {
@@ -291,14 +292,32 @@ void *handleInitialSync(void *threadArgsPtr)
         }
         if (!found) {
             snprintf(tempPath, sizeof(tempPath), "%s/sync_dir_%s/%s", currentPath, username_array, client_filenames[i]);
+            printf("\ncurrentPath: %s\n", currentPath);
             printf("Arquivo no Cliente não encontrado no Servidor: %s\n", client_filenames[i]);
-            upload_file(tempPath, socket);
+            // upload_file(tempPath, socket);
+            delete_local_file(client_filenames[i], username_array, currentPath);
         }
     }
 
     printf("\nfreeing.\n");
     free(packet_buffer);
     return NULL;
+}
+
+void delete_local_file(const char *filename, const char *username, const char *filepath)
+{
+    char file_path[1024];
+    snprintf(file_path, sizeof(file_path), "%s/sync_dir_%s/%s", filepath, username, filename);
+
+    printf("file path delete : %s\n", file_path);
+
+    if (remove(file_path) != 0)
+    {
+        perror("Error deleting file");
+        return;
+    }
+
+    printf("File %s deleted successfully.\n", filename);
 }
 
 // void *start_inotify(void *socket_ptr) {
