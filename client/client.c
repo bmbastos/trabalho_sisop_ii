@@ -17,6 +17,10 @@
 #include "../client/commands.h"
 #include "./interface.h"
 
+struct sockaddr_in serv_addr;
+int data_socket;
+void get_sync_dir(const char *username, int data_socket);
+
 void printUsage()
 {
     printf("Invalid arguments.\nUsage: ./client <username> <server_ip_address> <port>\n");
@@ -36,18 +40,18 @@ struct hostent *getServerHost(char *hostname)
 
 int createSocket()
 {
-    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd == -1)
+    int data_socket = socket(AF_INET, SOCK_STREAM, 0);
+    if (data_socket == -1)
     {
         fprintf(stderr, "ERROR opening socket\n");
         exit(EXIT_FAILURE);
     }
-    return sockfd;
+    return data_socket;
 }
 
-void connectToServer(int sockfd, struct sockaddr_in serv_addr)
+void connectToServer(int data_socket, struct sockaddr_in serv_addr)
 {
-    if (connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
+    if (connect(data_socket, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
     {
         fprintf(stderr, "ERROR connecting\n");
         exit(EXIT_FAILURE);
@@ -76,7 +80,7 @@ int check_login_response(int socket)
     return ERROR;
 }
 
-void handle_inotify_event(int fd, int sockfd, char* path)
+void handle_inotify_event(int fd, int data_socket, char* path)
 {
 #ifdef __linux__
     ssize_t bytesRead;
@@ -117,7 +121,7 @@ void handle_inotify_event(int fd, int sockfd, char* path)
             printf("\n[CLIENT - LOG]\tArquivo com conteúdo modificado: %s\n", event->name);
             strcat(currentPath, "/");
             strcat(currentPath, event->name);
-            upload_file(currentPath, sockfd);
+            upload_file(currentPath, data_socket);
         }
 
         if (event->mask & IN_CREATE)
@@ -125,24 +129,24 @@ void handle_inotify_event(int fd, int sockfd, char* path)
             printf("\n[CLIENT - LOG]\tArquivo criado: %s\n", event->name);
             strcat(currentPath, "/");
             strcat(currentPath, event->name);
-            upload_file(currentPath, sockfd);
+            upload_file(currentPath, data_socket);
         }
         if (event->mask & IN_MOVED_FROM)
         {
             printf("\n[CLIENT - LOG]\tArquivo retirado da sync_dir: %s\n", event->name);
-            delete_file(event->name, sockfd);
+            delete_file(event->name, data_socket);
         }
         if (event->mask & IN_MOVED_TO)
         {
             printf("\n[CLIENT - LOG]\tArquivo movido para sync_dir: %s\n", event->name);
             strcat(currentPath, "/");
             strcat(currentPath, event->name);
-            upload_file(currentPath, sockfd);
+            upload_file(currentPath, data_socket);
         }
         if (event->mask & IN_DELETE)
         {
             printf("\n[CLIENT - LOG]\tArquivo deletado: %s\n", event->name);
-            delete_file(event->name, sockfd);
+            delete_file(event->name, data_socket);
         }
 
         ptr += sizeof(struct inotify_event) + event->len;
@@ -379,12 +383,16 @@ void *start_inotify(void *threadArgsPtr) {
     return NULL;
 }
 
+void debug() {
+    printf("CHEGOU AQUI\n");
+}
+
 void *watch_server_changes(void *data_arg)
 {
-    thread_data_t *data = (thread_data_t *)data_arg;
-    free(data_arg);
+    struct ThreadArgs *data = (struct ThreadArgs *)data_arg;
     int notification_socket = createSocket();
-    connectToServer(notification_socket, data->serv_addr);
+    debug();
+    connectToServer(notification_socket, serv_addr);
     packet_t *packet_watch = create_packet(CMD_WATCH_CHANGES, data->username, strlen(data->username) + 1);
     packet_t *packet_buffer = malloc(sizeof(packet_t));
     if (packet_buffer == NULL)
@@ -421,7 +429,7 @@ void *watch_server_changes(void *data_arg)
         }
         else
         {
-            download_file(packet_buffer->payload, data->socket, 1, data->username);
+            get_sync_dir(data->username, data_socket);
         }
     }
 }
@@ -436,7 +444,7 @@ void get_sync_dir(const char *username, int sockfd) {
 
     struct ThreadArgs *initialSyncArgs = malloc(sizeof(struct ThreadArgs));
     initialSyncArgs->username = username;
-    initialSyncArgs->socket = sockfd;
+    initialSyncArgs->socket = data_socket;
 
     printf("\n\tINICIANDO SINCRONIZAÇÃO - SYNC_DIR\n");
 
@@ -458,7 +466,7 @@ void get_sync_dir(const char *username, int sockfd) {
 
     struct ThreadArgs *threadArgs = malloc(sizeof(struct ThreadArgs));
     threadArgs->username = username;
-    threadArgs->socket = sockfd;
+    threadArgs->socket = data_socket;
 
     pthread_t syncThread;
     if (pthread_create(&syncThread, NULL, start_inotify, (void *)threadArgs))
@@ -480,11 +488,11 @@ int main(int argc, char *argv[])
     struct hostent *server = getServerHost(argv[2]);
 
     int port = atoi(argv[3]);
-    struct sockaddr_in serv_addr = initializeServerAddress(server, port);
+    serv_addr = initializeServerAddress(server, port);
 
-    int sockfd = createSocket();
+    data_socket = createSocket();
 
-    connectToServer(sockfd, serv_addr);
+    connectToServer(data_socket, serv_addr);
 
     char *username_payload = strdup(username);
 
@@ -496,7 +504,7 @@ int main(int argc, char *argv[])
 
     packet_t *packetUsername = create_packet(CMD_LOGIN, username_payload, strlen(username) + 1);
 
-    if (send_packet_to_socket(sockfd, packetUsername) < 0)
+    if (send_packet_to_socket(data_socket, packetUsername) < 0)
     {
         perror("Error ao enviar username para o servidor.");
         free(username_payload);
@@ -504,21 +512,34 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    if (check_login_response(sockfd) < 0)
+    if (check_login_response(data_socket) < 0)
     {
-        close(sockfd);
+        close(data_socket);
         printf("Conexão negada pelo servidor\n");
         return EXIT_FAILURE;
     }
-
     // pthread_t syncThread;
-    get_sync_dir(username, sockfd);
+    get_sync_dir(username, data_socket);
+
+    pthread_t server_changes_thread;
+
+    struct ThreadArgs *notification_data = malloc(sizeof(struct ThreadArgs));
+    notification_data->socket = data_socket;
+    notification_data->username = strdup(username);
+    
+    if (pthread_create(&server_changes_thread, NULL, watch_server_changes, (void *)notification_data))
+    {
+        fprintf(stderr, "Erro ao criar thread userInterface.\n");
+        free(username_payload);
+        destroy_packet(packetUsername);
+        exit(EXIT_FAILURE);
+    }
 
     pthread_t userInterfaceThread;
 
     struct ThreadArgs interf_data;
     interf_data.username = strdup(username);
-    interf_data.socket = sockfd;
+    interf_data.socket = data_socket;
 
     if (pthread_create(&userInterfaceThread, NULL, userInterface, (void *)&interf_data))
     {
@@ -528,26 +549,11 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    // pthread_t server_changes_thread;
-
-    // thread_data_t *notification_data = malloc(sizeof(thread_data_t));
-    // notification_data->data_socket = sockfd;
-    // notification_data->serv_addr = serv_addr;
-    // strcpy(notification_data->username, username);
-    
-    // if (pthread_create(&server_changes_thread, NULL, watch_server_changes, (void *)notification_data))
-    // {
-    //     fprintf(stderr, "Erro ao criar thread userInterface.\n");
-    //     free(username_payload);
-    //     destroy_packet(packetUsername);
-    //     exit(EXIT_FAILURE);
-    // }
-
-    // pthread_join(server_changes_thread, NULL);
+    pthread_join(server_changes_thread, NULL);
     pthread_join(userInterfaceThread, NULL);
     // pthread_join(syncThread, NULL);
     
-    // close(sockfd);
+    // close(data_socket);
 
     free(username_payload);
     // free(notification_data);

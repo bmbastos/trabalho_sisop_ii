@@ -14,6 +14,7 @@
 #include "./commands.h"
 
 #define DIR_FOLDER_PREFIX "sync_dir_"
+void send_changes_to_clients(char *username);
 
 typedef struct
 {
@@ -92,6 +93,7 @@ int send_connection_response(int response, int socket)
 
 list_users_t *insert_or_update_new_connection(list_users_t *list, char *username, int user_socket, int *conn_closed, int isNotifySocket)
 {
+    printf("Inserting new conn\n");
     if (list == NULL) // Lista está vazia: cria um novo usuário
     {
         send_connection_response(EXIT_SUCCESS, user_socket);
@@ -112,7 +114,6 @@ list_users_t *insert_or_update_new_connection(list_users_t *list, char *username
                 else
                 {
                     list->socket[0] = user_socket;
-                    list->socketNotify[0] = 0;
                 }
             }
             else
@@ -126,7 +127,6 @@ list_users_t *insert_or_update_new_connection(list_users_t *list, char *username
                 else
                 {
                     list->socket[1] = user_socket;
-                    list->socketNotify[1] = 0;
                 }
             }
         }
@@ -321,6 +321,7 @@ int handle_packet(thread_data_t *data_ptr, int *conn_closed)
             perror("Error receiving file from socket");
             return ERROR;
         }
+        send_changes_to_clients(data->userpath);
         break;
     case CMD_DOWNLOAD:
         if (send_file(data->socket, packet.payload, data->userpath) < 0)
@@ -335,6 +336,7 @@ int handle_packet(thread_data_t *data_ptr, int *conn_closed)
             perror("Error deleting file");
             return ERROR;
         }
+        send_changes_to_clients(data->userpath);
         break;
     case CMD_LIST_SERVER:
         if (list_server(data->socket, data->userpath) < 0)
@@ -375,11 +377,10 @@ int handle_packet(thread_data_t *data_ptr, int *conn_closed)
 void get_socket_notify(const char *username, int result[2]) {
     list_users_t *current = users;
 
-    result[0] = -1;
-    result[1] = -1;
+    result[0] = 0;
+    result[1] = 0;
 
     while (current != NULL) {
-        // Check if the current user is the one we're looking for
         if (strcmp(current->username, username) == 0) {
             result[0] = current->socketNotify[0];
             result[1] = current->socketNotify[1];
@@ -389,127 +390,31 @@ void get_socket_notify(const char *username, int result[2]) {
     }
 }
 
-void send_changes_to_clients(char *username, int inotifyFd, int socket)
+void send_changes_to_clients(char *username)
 {
-    #ifdef __linux__
-    char buffer[4096];
-    ssize_t len;
-    char *ptr;
-    const struct inotify_event *event;
-    char filename[50];
-    char filepath[100];
-    snprintf(filepath, sizeof(filepath), "./%s%s", DIR_FOLDER_PREFIX, username);
-
     int userSockets[2];
-
-    while(1)
+    get_socket_notify(username, userSockets);
+    printf("NOTIFY SOCKET: %d\n", userSockets[0]);
+    for(int i = 0; i < 2; ++i)
     {
-        len = read(inotifyFd, buffer, sizeof(buffer));
-
-        if (len <= 0)
-            continue;
-
-        for (ptr = buffer; ptr < buffer + len; ptr += sizeof(struct inotify_event) + event->len)
+        if(userSockets[i] != 0)
         {
-            event = (const struct inotify_event *)ptr;
-            get_socket_notify(username, userSockets);
-
-            if (event->mask & IN_CREATE)
-            {
-                strcpy(filename, event->name);
-                printf("File %s created.\n", filename);
-                
-                for(int i = 0; i < 2; ++i)
-                {
-                    if(userSockets[i] != 0)
-                    {
-                        packet_t *packet = create_packet(CMD_NOTIFY_CHANGES, filename, strlen(filename)+1);
-                        send_packet_to_socket(userSockets[i], packet);
-                        print_packet(packet);
-                        // send_file(userSockets[i], filename, filepath);
-                    }
-                }
-            }
-            else if (event->mask & IN_DELETE)
-            {
-                strcpy(filename, event->name);
-                printf("File %s deleted.\n", filename);
-                for(int i = 0; i < 2; ++i)
-                {
-                    if(userSockets[i] != 0)
-                    {
-                        packet_t *packet = create_packet(CMD_NOTIFY_CHANGES, filename, strlen(filename)+1);
-                        send_packet_to_socket(userSockets[i], packet);
-                        print_packet(packet);
-                        // delete_file(userSockets[i], filename, filepath);
-                    }
-                }
-            }
-            else if (event->mask & IN_MODIFY)
-            {
-                strcpy(filename, event->name);
-                printf("File %s modified.\n", filename);
-                for(int i = 0; i < 2; ++i)
-                {
-                    if(userSockets[i] != 0)
-                    {
-                        packet_t *packet = create_packet(CMD_NOTIFY_CHANGES, filename, strlen(filename)+1);
-                        send_packet_to_socket(userSockets[i], packet);
-                        print_packet(packet);
-                        // send_file(userSockets[i], filename, filepath);
-                    }
-                }
-            }
+            packet_t *packet = create_packet(CMD_NOTIFY_CHANGES, NULL, 0);
+            send_packet_to_socket(userSockets[i], packet);
+            print_packet(packet);
         }
     }
-    #endif
-}
-
-void* setup_notification_observer(void* args)
-{
-    #ifdef __linux__
-    notify_data_t* data = (notify_data_t*)args;
-
-    char path[100] = "./";
-
-    strcat(path, DIR_FOLDER_PREFIX);
-    strcat(path, data->username);
-
-    int inotifyFd, watchFd;
-
-    inotifyFd = inotify_init();
-
-    if (inotifyFd == -1)
-    {
-        perror("inotify_init");
-        return (void*)ERROR;
-    }
-
-    watchFd = inotify_add_watch(inotifyFd, path, IN_MODIFY | IN_CLOSE_WRITE | IN_CREATE | IN_MOVED_FROM | IN_MOVED_TO | IN_DELETE);
-
-    if (watchFd == -1)
-    {
-        perror("inotify_add_watch");
-        return (void*)ERROR;
-    }
-
-    printf("Watching for file modifications in the server directory...\n");
-
-    while (1)
-    {
-        send_changes_to_clients(data->username, inotifyFd, data->socket);
-    }
-    #endif
-    return (void*)0;
 }
 
 void update_socket_notify(const char *username, int socket) {
     list_users_t *current = users;
+    printf("SALVANDO NOVO NOTIFY SOCKET\n");
 
     while (current != NULL) {
         if (strcmp(current->username, username) == 0) {
             if (!(current->socketNotify[0])) {
                 current->socketNotify[0] = socket;
+                printf("SOCKET: %d\n", current->socketNotify[0]);
             }
             else if (!(current->socketNotify[1] == 0)) {
                 current->socketNotify[1] = socket;
@@ -594,18 +499,12 @@ void *handle_new_client_connection(void *args)
             continue;
         }
 
-        // if (packet_buffer->type == CMD_WATCH_CHANGES)
-        // {
-        //     strcpy(username, packet_buffer->payload);
-        //     update_socket_notify(username, socket);
-        //     pthread_t notify_thread;
-        //     notify_data_t* notify_data = malloc(sizeof(notify_data_t));
-        //     notify_data->socket = socket;
-        //     notify_data->username = packet_buffer->payload;
-
-        //     pthread_create(&notify_thread, NULL, setup_notification_observer, (void*)notify_data);
-        //     continue;
-        // }
+        if (packet_buffer->type == CMD_WATCH_CHANGES)
+        {
+            strcpy(username, packet_buffer->payload);
+            update_socket_notify(username, socket);
+            continue;
+        }
 
         thread_data_t *thread_data = malloc(sizeof(thread_data_t));
         if (thread_data == NULL)
@@ -661,7 +560,7 @@ int main(int argc, char *argv[])
 
     while (1)
     {
-        newsockfd = -1;
+        newsockfd = 0;
         if ((newsockfd = accept(sockfd, (struct sockaddr *)&cli_addr, &clilen)) < 0)
         {
             perror("ERROR on accept\n");
