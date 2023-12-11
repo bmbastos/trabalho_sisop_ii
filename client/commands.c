@@ -223,11 +223,14 @@ int close_connection(int socket) {
 
     const packet_t *packetExitResponse = receive_packet_from_socket(socket);
     int response = atoi(packetExitResponse->payload);
+    
+    close(socket);
 
     if (response == EXIT_SUCCESS)
     {
         return EXIT_SUCCESS;
     }
+
 
     return ERROR;
 }

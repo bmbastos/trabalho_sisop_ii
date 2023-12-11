@@ -172,6 +172,8 @@ list_users_t *remove_user_connection(list_users_t *list, char *user_name, int us
                     current->connections -= 1;
                     current->socket[i] = 0;
                     close(user_socket);
+                    close(current->socketNotify[i]);
+                    current->socketNotify[i] = 0;
                     
                     if (current->connections == 0)
                     {
@@ -325,6 +327,7 @@ int handle_packet(thread_data_t *data_ptr, int *conn_closed)
         pthread_mutex_lock(&list_mutex);
         users = remove_user_connection(users, data->username, data->socket);
         pthread_mutex_unlock(&list_mutex);
+        printf("User removed\n");
         break;
     case DATA:
     case CMD_LOGIN:
@@ -429,7 +432,6 @@ void *handle_new_client_connection(void *args)
         {
             break;
         }
-
         bzero(packet_buffer, sizeof(packet_t));
         packet_buffer = receive_packet_wo_payload(socket);
         if (receive_packet_payload(socket, packet_buffer) < 0)
@@ -499,8 +501,7 @@ void *handle_new_client_connection(void *args)
         handle_packet(thread_data, &conn_closed);
     }
 
-    free(packet_buffer);
-    return (void *)0;
+    return NULL;
 }
 
 int main(int argc, char *argv[])
@@ -533,6 +534,7 @@ int main(int argc, char *argv[])
     while (1)
     {
         newsockfd = 0;
+        printf("Accepting conn\n");
         if ((newsockfd = accept(sockfd, (struct sockaddr *)&cli_addr, &clilen)) < 0)
         {
             perror("ERROR on accept\n");
@@ -549,6 +551,7 @@ int main(int argc, char *argv[])
         {
             continue;
         }
+        pthread_detach(thread);
     }
 
     free_user_list(users);
