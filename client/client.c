@@ -75,8 +75,7 @@ int check_login_response(int socket)
     int response = atoi(login_response_packet->payload);
     if (response == EXIT_SUCCESS)
     {
-        printf("Logado com sucesso ao servidor!\n");
-        return 0;
+        return 0;       // Logado com sucesso
     }
     return ERROR;
 }
@@ -88,19 +87,17 @@ void handle_inotify_event(int fd, int data_socket, char* path, const char *usern
     char *buffer = NULL;
     size_t bufferSize = 0;
     size_t totalBytesRead = 0;
-    size_t chunkSize = 4096;  // Chunk size for reading
+    size_t chunkSize = 4096;
 
     do {
-        buffer = realloc(buffer, bufferSize + chunkSize);  // Expand buffer
+        buffer = realloc(buffer, bufferSize + chunkSize);
         if (buffer == NULL) {
-            perror("realloc");
             free(buffer);
             exit(EXIT_FAILURE);
         }
 
         bytesRead = read(fd, buffer + totalBytesRead, chunkSize);
         if (bytesRead == -1) {
-            perror("read");
             free(buffer);
             exit(EXIT_FAILURE);
         }
@@ -108,7 +105,7 @@ void handle_inotify_event(int fd, int data_socket, char* path, const char *usern
         totalBytesRead += bytesRead;
         bufferSize += chunkSize;
 
-    } while (bytesRead == chunkSize);  // Continue until less data is read than the chunk size
+    } while (bytesRead == chunkSize);
 
     for (char *ptr = buffer; ptr < buffer + bytesRead;)
     {
@@ -117,11 +114,8 @@ void handle_inotify_event(int fd, int data_socket, char* path, const char *usern
         char currentPath[1024];
         strcpy(currentPath, path);
 
-        printf("\n[CLIENT - LOG]\tINotify Path: %s\n", currentPath);
-
         if (event->mask & IN_CLOSE_WRITE)
         {
-            printf("\n[CLIENT - LOG]\tArquivo com conteúdo modificado: %s\n", event->name);
             strcat(currentPath, "/");
             strcat(currentPath, event->name);
             upload_file(currentPath, data_socket);
@@ -129,26 +123,22 @@ void handle_inotify_event(int fd, int data_socket, char* path, const char *usern
 
         if (event->mask & IN_CREATE)
         {
-            printf("\n[CLIENT - LOG]\tArquivo criado: %s\n", event->name);
             strcat(currentPath, "/");
             strcat(currentPath, event->name);
             upload_file(currentPath, data_socket);
         }
         if (event->mask & IN_MOVED_FROM)
         {
-            printf("\n[CLIENT - LOG]\tArquivo retirado da sync_dir: %s\n", event->name);
             delete_file(event->name, data_socket, username);
         }
         if (event->mask & IN_MOVED_TO)
         {
-            printf("\n[CLIENT - LOG]\tArquivo movido para sync_dir: %s\n", event->name);
             strcat(currentPath, "/");
             strcat(currentPath, event->name);
             upload_file(currentPath, data_socket);
         }
         if (event->mask & IN_DELETE)
         {
-            printf("\n[CLIENT - LOG]\tArquivo deletado: %s\n", event->name);
             delete_file(event->name, data_socket, username);
         }
 
@@ -165,13 +155,11 @@ void get_client_file_array(const char *basepath, char filenames[][256], int *fil
 
     dir = opendir(basepath);
     if (dir == NULL) {
-        perror("Error opening directory");
         return;
     }
 
-    *file_count = 0; // Inicializa o contador de arquivos
+    *file_count = 0;
 
-    // Lê cada arquivo no diretório
     while ((entry = readdir(dir)) != NULL && *file_count < 100) {
         if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
             // Copia o nome do arquivo para o array de nomes de arquivos
@@ -179,13 +167,11 @@ void get_client_file_array(const char *basepath, char filenames[][256], int *fil
             (*file_count)++;
         }
     }
-
     closedir(dir);
 }
 
 void *handleInitialSync(void *threadArgsPtr)
 {
-    printf("\n no handle initial sync\n");
     struct ThreadArgs *threadArgs = (struct ThreadArgs *)threadArgsPtr;
     char username_array[strlen(threadArgs->username) + 1];
     strcpy(username_array, threadArgs->username);
@@ -195,7 +181,6 @@ void *handleInitialSync(void *threadArgsPtr)
 
     if (getcwd(currentPath, sizeof(currentPath)) == NULL)
     {
-        perror("getcwd");
         exit(EXIT_FAILURE);
     }
 
@@ -204,13 +189,8 @@ void *handleInitialSync(void *threadArgsPtr)
 
     if (PATH == NULL)
     {
-        perror("malloc");
         exit(EXIT_FAILURE);
     }
-
-    // strcpy(PATH, currentPath);
-    // strcat(PATH, "/sync_dir_");
-    // strcat(PATH, username_array);
 
     int socket = threadArgs->socket;
 
@@ -218,13 +198,12 @@ void *handleInitialSync(void *threadArgsPtr)
 
     if (send_packet_to_socket(socket, initialSyncPacket) < 0)
     {
-        perror("Failed to send initial sync socket");
+        return (void*)-1;
     }
 
     packet_t *packet_buffer = malloc(sizeof(packet_t));
     if (packet_buffer == NULL)
     {
-        perror("ERROR allocating memory for packet\n");
         return (void *)-1;
     }
 
@@ -232,15 +211,14 @@ void *handleInitialSync(void *threadArgsPtr)
     packet_buffer = receive_packet_wo_payload(socket);
 
     if (receive_packet_payload(socket, packet_buffer) < 0) {
-        perror("Failed to receive packet payload");
+        return (void *)-1;
     }
 
     if (!packet_buffer || packet_buffer->type != FILE_LIST) {
-        printf("Error reading file list from socket or unexpected packet type\n");
+        return (void *)-1;
     }
 
     char *file_list = packet_buffer->payload;
-    printf("\nthe file list is: %s\n", file_list);
 
     // Criando um array para armazenar os nomes dos arquivos do servidor
     const int MAX_FILES = 100;
@@ -266,7 +244,6 @@ void *handleInitialSync(void *threadArgsPtr)
     char basepath[100] = CLIENT_FILE_PATH;
     strcat(basepath, threadArgs->username);
 
-    // Chamando a função para obter os nomes dos arquivos do cliente
     get_client_file_array(basepath, client_filenames, &client_file_count);
 
     // Imprimir os nomes dos arquivos do servidor
@@ -292,19 +269,15 @@ void *handleInitialSync(void *threadArgsPtr)
         }
         if (!found) {
             snprintf(tempPath, sizeof(tempPath), "%s/sync_dir_%s/%s", currentPath, username_array, client_filenames[i]);
-            printf("\ncurrentPath: %s\n", currentPath);
             printf("Arquivo no Cliente não encontrado no Servidor: %s\n", client_filenames[i]);
-            // upload_file(tempPath, socket);
             delete_local_file(client_filenames[i], username_array, currentPath);
         }
     }
 
-    printf("\nfreeing.\n");
     free(packet_buffer);
     return NULL;
 }
 
-// void *start_inotify(void *socket_ptr) {
 void *start_inotify(void *threadArgsPtr) {    
     #ifdef __linux__
     struct ThreadArgs *threadArgs = (struct ThreadArgs *)threadArgsPtr;
@@ -313,72 +286,46 @@ void *start_inotify(void *threadArgsPtr) {
 
     int socket = threadArgs->socket;
 
-    printf("\n\nthe username is: %s\n", username_array);
-
     int inotifyFd, watchFd;
 
-    // Initialize inotify
     inotifyFd = inotify_init();
     if (inotifyFd == -1)
     {
-        perror("inotify_init");
         exit(EXIT_FAILURE);
     }
-
-    // Gets the sync_dir pathfile
 
     char *PATH;
     char currentPath[256];
 
-    // Get the current working directory
     if (getcwd(currentPath, sizeof(currentPath)) == NULL)
     {
-        perror("getcwd");
         exit(EXIT_FAILURE);
     }
 
-    // Allocate memory for the combined path
     size_t pathLength = strlen(currentPath) + strlen("/sync_dir_") + strlen(username_array) + 1;
     PATH = (char *)malloc(pathLength);
 
-    // Check for allocation failure
     if (PATH == NULL)
     {
-        perror("malloc");
         exit(EXIT_FAILURE);
     }
 
-    // printf("Current Path: %s\n", currentPath);
-    // printf("Current Path Length: %ld\n", strlen(currentPath));
-
-    // Combine the paths
     strcpy(PATH, currentPath);
     strcat(PATH, "/sync_dir_");
     strcat(PATH, username_array);
 
-    // Now PATH contains the concatenated path
-    printf("\n\nConcatenated Path: %s\n\n", PATH);
-
-    // Add a watch for the directory
-    // watchFd = inotify_add_watch(inotifyFd, PATH, IN_MODIFY | IN_CLOSE_WRITE | IN_CREATE | IN_MOVED_FROM | IN_MOVED_TO | IN_DELETE);
     watchFd = inotify_add_watch(inotifyFd, PATH, IN_CLOSE_WRITE | IN_CREATE | IN_MOVED_FROM | IN_MOVED_TO | IN_DELETE);
     if (watchFd == -1)
     {
-        perror("inotify_add_watch");
         exit(EXIT_FAILURE);
     }
 
-    printf("Watching for file modifications in the directory...\n");
-
-    // Main event loop
     while (1)
     {
         handle_inotify_event(inotifyFd, socket, PATH, threadArgs->username);
     }
 
-    // Close inotify descriptor when done (this part will not be reached in this example)
     close(inotifyFd);
-    // Don't forget to free the allocated memory
     free(PATH);
 #endif
     return NULL;
@@ -393,49 +340,39 @@ void *watch_server_changes(void *data_arg)
     packet_t *packet_buffer = malloc(sizeof(packet_t));
     if (packet_buffer == NULL)
     {
-        perror("ERROR allocating memory for packet\n");
         return (void *)-1;
     }
 
     if (send_packet_to_socket(notification_socket, packet_watch) < 0)
     {
-        perror("Failed to send watch changes socket");
+        return (void *)-1;
     }
 
     while (1)
     {
-        printf("READY TO RECEIVE MORE NOTIFICATIONS\n\n");
         bzero(packet_buffer, sizeof(packet_t));
         packet_buffer = receive_packet_wo_payload(notification_socket);
         if (receive_packet_payload(notification_socket, packet_buffer) < 0)
         {
-            perror("Failed to receive packet payload");
             continue;
         }
 
         if (!packet_buffer)
         {
-            printf("Error reading changes notification from socket\n");
             continue;
         }
 
         if (packet_buffer->type == CMD_DELETE)
         {
-            printf("RECEIVED DELETE NOTIFICATION. UPDATING\n\n");
-            printf("FILENAME: %s\n\n", packet_buffer->payload);
             char currentPath[256];
             if (getcwd(currentPath, sizeof(currentPath)) == NULL)
             {
-                perror("getcwd");
                 exit(EXIT_FAILURE);
             }
             delete_local_file(packet_buffer->payload, data->username, currentPath);
         }
         else if (packet_buffer->type == CMD_DOWNLOAD)
         {
-            printf("RECEIVED DOWNLOAD NOTIFICATION. UPDATING\n\n");
-            printf("FILENAME: %s\n\n", packet_buffer->payload);
-
             download_file(packet_buffer->payload, data_socket, 1, data->username);
         }
     }
@@ -453,25 +390,17 @@ void get_sync_dir(const char *username, int sockfd) {
     initialSyncArgs->username = username;
     initialSyncArgs->socket = data_socket;
 
-    printf("\n\tINICIANDO SINCRONIZAÇÃO - SYNC_DIR\n");
-
     if (pthread_create(&initialSyncThread, NULL, handleInitialSync, (void *)initialSyncArgs))
     {
-        fprintf(stderr, "Erro ao criar thread sync.\n");
         free(initialSyncArgs);
         exit(EXIT_FAILURE);
     }
-
-    printf("\nestamos de volta\n");
 
     if (pthread_join(initialSyncThread, NULL))
     {
-        fprintf(stderr, "Erro ao criar thread de sync.\n");
         free(initialSyncArgs);
         exit(EXIT_FAILURE);
     }
-
-    printf("\n\tFINALIZADA A SINCRONIZAÇÃO - SYNC_DIR\n");
 
     struct ThreadArgs *threadArgs = malloc(sizeof(struct ThreadArgs));
     threadArgs->username = username;
@@ -480,7 +409,6 @@ void get_sync_dir(const char *username, int sockfd) {
     pthread_t syncThread;
     if (pthread_create(&syncThread, NULL, start_inotify, (void *)threadArgs))
     {
-        fprintf(stderr, "Erro ao criar thread start_inotify.\n");
         free(threadArgs);
         exit(EXIT_FAILURE);
     }
@@ -507,7 +435,6 @@ int main(int argc, char *argv[])
 
     if (username_payload == NULL)
     {
-        perror("Error ao criar username payload.");
         exit(EXIT_FAILURE);
     }
 
@@ -515,7 +442,6 @@ int main(int argc, char *argv[])
 
     if (send_packet_to_socket(data_socket, packetUsername) < 0)
     {
-        perror("Error ao enviar username para o servidor.");
         free(username_payload);
         destroy_packet(packetUsername);
         exit(EXIT_FAILURE);
@@ -524,10 +450,9 @@ int main(int argc, char *argv[])
     if (check_login_response(data_socket) < 0)
     {
         close(data_socket);
-        printf("Conexão negada pelo servidor\n");
+        printf("Conexão negada pelo servidor, verifique a quantidade de dispositivos conectados.\n");
         return EXIT_FAILURE;
     }
-    // pthread_t syncThread;
     get_sync_dir(username, data_socket);
 
     pthread_t server_changes_thread;
@@ -538,7 +463,6 @@ int main(int argc, char *argv[])
     
     if (pthread_create(&server_changes_thread, NULL, watch_server_changes, (void *)notification_data))
     {
-        fprintf(stderr, "Erro ao criar thread userInterface.\n");
         free(username_payload);
         destroy_packet(packetUsername);
         exit(EXIT_FAILURE);
@@ -552,19 +476,13 @@ int main(int argc, char *argv[])
 
     if (pthread_create(&userInterfaceThread, NULL, userInterface, (void *)&interf_data))
     {
-        fprintf(stderr, "Erro ao criar thread userInterface.\n");
-        // free(username_payload);
         destroy_packet(packetUsername);
         exit(EXIT_FAILURE);
     }
 
     pthread_join(userInterfaceThread, NULL);
-    // pthread_join(syncThread, NULL);
-    
-    // close(data_socket);
 
     free(username_payload);
-    // free(notification_data);
     destroy_packet(packetUsername);
 
     return 0;

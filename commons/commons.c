@@ -8,7 +8,6 @@ packet_t *create_packet(type_packet_t type, const char *payload, int payload_len
     packet_t *packet = malloc(sizeof(packet_t));
     if (!packet)
     {
-        perror("Could not allocate memory for packet");
         return NULL;
     }
 
@@ -18,7 +17,6 @@ packet_t *create_packet(type_packet_t type, const char *payload, int payload_len
         packet->payload = malloc(payload_length);
         if (!packet->payload)
         {
-            perror("Could not allocate memory for payload");
             free(packet);
             return NULL;
         }
@@ -79,6 +77,7 @@ const char *get_packet_type_name(type_packet_t type)
     }
 }
 
+// Função para debbuf do packet
 void print_packet(const packet_t *packet)
 {
     if (!SHOULD_PRINT_PACKETS)
@@ -87,7 +86,6 @@ void print_packet(const packet_t *packet)
     }
     if (!packet)
     {
-        printf("Packet is NULL\n");
         return;
     }
     printf("Packet {\n\t");
@@ -119,19 +117,15 @@ int send_packet_to_socket(int socket, const packet_t *packet)
     char *buffer = malloc(total_size);
     if (!buffer)
     {
-        perror("Failed to allocate memory for buffer\n");
         return -1;
     }
 
-    // Copia o type pro buffer
     memcpy(buffer, &(packet->type), sizeof(packet->type));
     size_t bytes_offset = sizeof(packet->type);
 
-    // Copia o length_payload pro buffer
     memcpy(buffer + bytes_offset, &(packet->length_payload), sizeof(packet->length_payload));
     bytes_offset += sizeof(packet->length_payload);
 
-    // Copia o payload pro buffer se existir
     if (packet->payload && packet->length_payload > 0)
     {
         memcpy(buffer + bytes_offset, packet->payload, packet->length_payload);
@@ -139,20 +133,17 @@ int send_packet_to_socket(int socket, const packet_t *packet)
 
     if (sizeof(buffer) <= 0)
     {
-        perror("ERROR! Buffer is empty\n");
         free(buffer);
         return -1;
     }
 
     if (write(socket, buffer, total_size) < 0)
     {
-        perror("Error writing to socket\n");
         free(buffer);
         return -1;
     }
 
     print_packet(packet);
-    printf("Sent to socket: %d\n", socket);
     free(buffer);
     return 0;
 }
@@ -163,7 +154,6 @@ packet_t *receive_packet_from_socket(int socket)
 
     if (receive_packet_payload(socket, packet) < 0)
     {
-        perror("Error getting packet payload");
         destroy_packet(packet);
         return NULL;
     }
@@ -176,22 +166,17 @@ packet_t *receive_packet_wo_payload(int socket)
     packet_t *packet = malloc(sizeof(packet_t));
     if (!packet)
     {
-        perror("Failed to allocate memory for packet");
         return NULL;
     }
 
-    // Read the type of the packet
     if (read(socket, &(packet->type), sizeof(packet->type)) <= 0)
     {
-        perror("Error reading packet type from socket");
         free(packet);
         return NULL;
     }
 
-    // Read the length of the payload
     if (read(socket, &(packet->length_payload), sizeof(packet->length_payload)) <= 0)
     {
-        perror("Error reading payload length from socket");
         free(packet);
         return NULL;
     }
@@ -205,7 +190,6 @@ int receive_packet_payload(int socket, packet_t *packet) {
     if (packet->length_payload > 0) {
         packet->payload = malloc(packet->length_payload);
         if (!packet->payload) {
-            perror("Failed to allocate memory for payload");
             free(packet);
             return ERROR;
         }
@@ -214,7 +198,6 @@ int receive_packet_payload(int socket, packet_t *packet) {
         while (bytes_received < packet->length_payload) {
             int bytes_read = read(socket, packet->payload + bytes_received, packet->length_payload - bytes_received);
             if (bytes_read <= 0) {
-                perror("Error reading payload from socket");
                 free(packet->payload);
                 free(packet);
                 return ERROR;
@@ -258,7 +241,6 @@ char *clone_string(const char *src)
     char *dest = malloc(strlen(src) + 1);
     if (!dest)
     {
-        fprintf(stderr, "Erro ao alocar memória para a string.\n");
         return NULL;
     }
     strcpy(dest, src);
@@ -275,7 +257,6 @@ void get_file_metadata_list(const char *basepath, char *file_list)
 
     if (dir == NULL)
     {
-        perror("Error opening directory");
         return;
     }
 
@@ -288,7 +269,6 @@ void get_file_metadata_list(const char *basepath, char *file_list)
 
             if (stat(file_path, &file_stat) < 0)
             {
-                perror("Error getting file stats");
                 continue;
             }
 
@@ -316,13 +296,11 @@ long get_file_size(const char *file_name)
     FILE *file = fopen(file_name, "rb");
     if (file == NULL)
     {
-        perror("Error opening file");
         return -1;
     }
 
     if (fseek(file, 0, SEEK_END) != 0)
     {
-        perror("Error seeking to end of file");
         fclose(file);
         return -1;
     }
@@ -330,7 +308,6 @@ long get_file_size(const char *file_name)
     long size = ftell(file);
     if (size == -1)
     {
-        perror("Error getting file size");
         fclose(file);
         return -1;
     }
@@ -350,21 +327,18 @@ char *read_file_into_buffer(const char *filename)
     FILE *file = fopen(filename, "rb");
     if (file == NULL)
     {
-        perror("Error opening file");
         return NULL;
     }
 
     char *buffer = (char *)malloc(size);
     if (buffer == NULL)
     {
-        perror("Error allocating memory for buffer");
         fclose(file);
         return NULL;
     }
 
     if (fread(buffer, 1, size, file) != size)
     {
-        perror("Error reading file into buffer");
         free(buffer);
         fclose(file);
         return NULL;
