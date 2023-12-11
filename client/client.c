@@ -435,18 +435,24 @@ void *watch_server_changes(void *data_arg)
             continue;
         }
 
-        if (packet_buffer->type != CMD_NOTIFY_CHANGES)
+        if (packet_buffer->type == CMD_DELETE)
         {
-            printf("Received unexpected packet. Expected CMD_NOTIFY_CHANGES\n");
-            continue;
+            printf("RECEIVED DELETE NOTIFICATION. UPDATING\n\n");
+            printf("FILENAME: %s\n\n", packet_buffer->payload);
+            char currentPath[256];
+            if (getcwd(currentPath, sizeof(currentPath)) == NULL)
+            {
+                perror("getcwd");
+                exit(EXIT_FAILURE);
+            }
+            delete_local_file(packet_buffer->payload, data->username, currentPath);
         }
-        else
+        else if (packet_buffer->type == CMD_DOWNLOAD)
         {
-            printf("RECEIVED NOTIFICATION. UPDATING\n\n");
-            struct ThreadArgs *initialSyncArgs = malloc(sizeof(struct ThreadArgs));
-            initialSyncArgs->username = data->username;
-            initialSyncArgs->socket = data_socket;
-            handleInitialSync((void *)initialSyncArgs);
+            printf("RECEIVED DOWNLOAD NOTIFICATION. UPDATING\n\n");
+            printf("FILENAME: %s\n\n", packet_buffer->payload);
+
+            download_file(packet_buffer->payload, data_socket, 1, data->username);
         }
     }
 }
@@ -568,7 +574,6 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    pthread_join(server_changes_thread, NULL);
     pthread_join(userInterfaceThread, NULL);
     // pthread_join(syncThread, NULL);
     

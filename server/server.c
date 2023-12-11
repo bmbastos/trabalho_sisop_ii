@@ -321,7 +321,7 @@ int handle_packet(thread_data_t *data_ptr, int *conn_closed)
             perror("Error receiving file from socket");
             return ERROR;
         }
-        send_changes_to_clients(data->username, CMD_UPLOAD, packet.payload);
+        send_changes_to_clients(data->username, CMD_DOWNLOAD, packet.payload);
         break;
     case CMD_DOWNLOAD:
         if (send_file(data->socket, packet.payload, data->userpath) < 0)
