@@ -496,8 +496,6 @@ void *handle_new_client_connection(void *args)
         thread_data->username = strdup(username);
         thread_data->userpath = strdup(path);
 
-        handle_packet(thread_data, &conn_closed);
-
     }
 
     free(packet_buffer);
