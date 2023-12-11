@@ -5,33 +5,26 @@
 
 int upload_file(const char *filepath, int socket) {
     if (filepath == NULL) {
-        perror("Filename is NULL\n");
         return ERROR;
     }
 
-    // Extrair o nome do arquivo do caminho
     const char *filename = strrchr(filepath, '/');
     if (filename == NULL) {
-        perror("Invalid filepath\n");
         return ERROR;
     }
-    filename++; // Avança um caractere para passar a barra
-    printf("FILEPATH: %s\n", filepath);
+    filename++;
     size_t file_size = get_file_size(filepath);
     char *file_buffer = read_file_into_buffer(filepath);
     if (!file_buffer) {
-        perror("Failed to read file into buffer\n");
         return ERROR;
     }
 
     packet_t *filename_packet = create_packet(CMD_UPLOAD, filename, strlen(filename)+1);
     if (!filename_packet) {
-        perror("Failed to create filename packet\n");
         return ERROR;
     }
 
     if (send_packet_to_socket(socket, filename_packet) < 0) {
-        perror("Error writing filename to socket\n");
         destroy_packet(filename_packet);
         return ERROR;
     }
@@ -40,20 +33,13 @@ int upload_file(const char *filepath, int socket) {
 
     packet_t *data_packet = create_packet(DATA, file_buffer, file_size);
 
-    // if (data_packet->length_payload == 0)
-    // {
-    //     perror("Packet is malformed\n");
-    //     return ERROR;
-    // }
     free(file_buffer);
 
     if (!data_packet) {
-        perror("Failed to create data packet\n");
         return ERROR;
     }
 
     if (send_packet_to_socket(socket, data_packet) < 0) {
-        perror("Error writing file to socket\n");
         destroy_packet(data_packet);
         return ERROR;
     }
@@ -68,7 +54,6 @@ int download_file(const char *filename, int socket, int on_sync_dir, const char*
 
     if (send_packet_to_socket(socket, packet))
     {
-        perror("Error writing to socket\n");
         return ERROR;
     }
 
@@ -93,28 +78,23 @@ int download_file(const char *filename, int socket, int on_sync_dir, const char*
     FILE *file_ptr = fopen(file_path, "wb");
     if (file_ptr == NULL)
     {
-        perror("Error opening local file\n");
         return ERROR;
     }
 
     const packet_t *receivedFilePacket = receive_packet_from_socket(socket);
     if (!receivedFilePacket) {
-        fprintf(stderr, "Failed to receive file packet\n");
         fclose(file_ptr);
         return ERROR;
     }
 
     if (fwrite(receivedFilePacket->payload, 1, receivedFilePacket->length_payload, file_ptr) != receivedFilePacket->length_payload) {
-        perror("Error writing downloaded file locally");
         fclose(file_ptr);
         return ERROR;
     } else {
-        printf("File received successfully from server.\n");
     }    
 
     if (fclose(file_ptr) < 0)
     {
-        perror("Error closing file\n");
         return ERROR;
     }
 
@@ -127,7 +107,6 @@ int delete_file(const char *filename, int socket, const char* username)
 
     if (send_packet_to_socket(socket, packet) < 0)
     {
-        perror("Error writing to socket\n");
         return ERROR;
     }
 
@@ -135,7 +114,6 @@ int delete_file(const char *filename, int socket, const char* username)
 
     if (getcwd(currentPath, sizeof(currentPath)) == NULL)
     {
-        perror("getcwd");
         exit(EXIT_FAILURE);
     }
 
@@ -149,15 +127,10 @@ void delete_local_file(const char *filename, const char *username, const char *f
     char file_path[1024];
     snprintf(file_path, sizeof(file_path), "%s/sync_dir_%s/%s", filepath, username, filename);
 
-    printf("file path delete : %s\n", file_path);
-
     if (remove(file_path) != 0)
     {
-        perror("Error deleting file");
         return;
     }
-
-    printf("File %s deleted successfully.\n", filename);
 }
 
 int list_server(int socket)
@@ -166,7 +139,6 @@ int list_server(int socket)
 
     if (send_packet_to_socket(socket, packet) < 0)
     {
-        perror("Error writing to socket");
         return ERROR;
     }
     
@@ -174,15 +146,13 @@ int list_server(int socket)
 
     if (!packetFileListBuffer)
     {
-        printf("Error reading packet from socket. Closing connection\n");
         close(socket);
     }
 
     char *fileList = (char *)malloc(packetFileListBuffer->length_payload + 1);
 
     strncpy(fileList, packetFileListBuffer->payload, packetFileListBuffer->length_payload);
-
-    printf("%s\n", fileList);
+    
     return 0;
 }
 
@@ -223,12 +193,10 @@ int receive_data(int socket, void *buffer, size_t length, int timeout_sec)
 
         if (ret < 0)
         {
-            perror("Select error\n");
             return -1;
         }
         else if (ret == 0)
         {
-            fprintf(stderr, "Socket timeout\n");
             return -1;
         }
 
@@ -236,7 +204,6 @@ int receive_data(int socket, void *buffer, size_t length, int timeout_sec)
 
         if (received < 0)
         {
-            perror("Error reading from socket\n");
             return -1;
         }
 
@@ -251,7 +218,6 @@ int close_connection(int socket) {
 
     if (send_packet_to_socket(socket, packet) < 0)
     {
-        perror("Error writing to socket\n");
         return ERROR;
     }
 

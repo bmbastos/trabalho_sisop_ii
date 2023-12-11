@@ -6,7 +6,7 @@ const char* get_filename(const char* filepath) {
     if(slash) {
         return slash + 1;
     } else {
-        return filepath; // No path, only filename
+        return filepath;
     }
 }
 
@@ -32,13 +32,11 @@ int copy_file(const char* src, const char* dest) {
     return 0;
 }
 
-// Function to copy to sync directory
 int copy_to_sync_dir(char* filepath, const char* username) {
     char currentPath[255];
 
     if (getcwd(currentPath, sizeof(currentPath)) == NULL)
     {
-        perror("getcwd");
         exit(EXIT_FAILURE);
     }
 
@@ -50,7 +48,6 @@ int copy_to_sync_dir(char* filepath, const char* username) {
     return copy_file(filepath, newpath);
 }
 
-// Retorna 1 se deve ser encerrada a interface com o servidor
 int parse_input(char* input, int socket, const char* username) {
     if (strncmp(input, "upload ", 7) == 0) {
         char* argument = input + 7;
@@ -97,7 +94,7 @@ int parse_input(char* input, int socket, const char* username) {
     return 0;
 }
 
-void printOptionsMenu() {
+void printOptionsMenu(void) {
     printf("\n");
     printf("# upload\n");
     printf("# download\n");
@@ -110,11 +107,6 @@ void printOptionsMenu() {
 
 void *userInterface(void *args_ptr)
 {
-    if (!args_ptr)
-    {
-        printf(" COULD NOT RECEIVE ARG\n");
-    }
-
     struct ThreadArgs *threadArgs = (struct ThreadArgs *)args_ptr;
     int shouldExit = 0;
     
