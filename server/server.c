@@ -58,14 +58,12 @@ list_users_t *create_new_user(char *user_name, int user_socket)
     list_users_t *new_user = (list_users_t *)calloc(1, sizeof(list_users_t));
     if (new_user == NULL)
     {
-        perror("ERROR creating user\n");
         exit(EXIT_FAILURE);
     }
 
     new_user->username = strdup(user_name);
     if (new_user->username == NULL)
     {
-        perror("ERROR duplicating username\n");
         free(new_user);
         exit(EXIT_FAILURE);
     }
@@ -93,7 +91,6 @@ int send_connection_response(int response, int socket)
 
 list_users_t *insert_or_update_new_connection(list_users_t *list, char *username, int user_socket, int *conn_closed, int isNotifySocket)
 {
-    printf("Inserting new conn\n");
     if (list == NULL) // Lista está vazia: cria um novo usuário
     {
         send_connection_response(EXIT_SUCCESS, user_socket);
@@ -153,13 +150,9 @@ list_users_t *insert_or_update_new_connection(list_users_t *list, char *username
 list_users_t *remove_user_connection(list_users_t *list, char *user_name, int user_socket)
 {
     printf("Removendo conexão do usuário %s\n", user_name);
-    printf("user socket %d\n", user_socket);
-    printf("user list %d\n", list->socket[0]);
-    printf("user list %d\n", list->socket[1]);
 
     if (list == NULL)
     {
-        printf("Lista de usuários vazia.\n");
         return NULL;
     }
 
@@ -170,18 +163,16 @@ list_users_t *remove_user_connection(list_users_t *list, char *user_name, int us
     {
         if (strcmp(current->username, user_name) == 0)
         {
-            printf("Usuário encontrado.\n");
             // Verifica se a conexão existe para o IP e o Socket fornecidos
             for (int i = 0; i < current->connections; ++i)
             {
                 if (current->socket[i] == user_socket)
                 {
-                    printf("Conexão encontrada.\n");
                     // Remove a conexão
                     current->connections -= 1;
                     current->socket[i] = 0;
                     close(user_socket);
-                    // Se não houver mais conexões, remova o usuário da lista
+                    
                     if (current->connections == 0)
                     {
                         if (previous == NULL)
@@ -209,7 +200,6 @@ list_users_t *remove_user_connection(list_users_t *list, char *user_name, int us
                 }
             }
         }
-
         previous = current;
         current = current->next;
     }
@@ -219,6 +209,7 @@ list_users_t *remove_user_connection(list_users_t *list, char *user_name, int us
     return list;
 }
 
+// Função para debug da lista de usuários
 void print_user_list(list_users_t *list)
 {
     if (list == NULL)
@@ -263,7 +254,6 @@ int setupSocket(int *sockfd, int port)
     *sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (*sockfd == -1)
     {
-        perror("ERROR opening socket");
         return -1;
     }
 
@@ -291,11 +281,6 @@ int setupSocket(int *sockfd, int port)
     return 0;
 }
 
-int handle_login(int socket, const char *username)
-{
-    perror("Login not implemented");
-    return ERROR;
-}
 
 int handle_packet(thread_data_t *data_ptr, int *conn_closed)
 {
@@ -308,17 +293,9 @@ int handle_packet(thread_data_t *data_ptr, int *conn_closed)
 
     switch (cmd)
     {
-    case CMD_LOGIN:
-        if (handle_login(data->socket, packet.payload) < 0)
-        {
-            perror("Error handling client login");
-            return ERROR;
-        }
-        break;
     case CMD_UPLOAD:
         if (receive_file(data->socket, data->userpath, packet.payload, packet.length_payload) < 0)
         {
-            perror("Error receiving file from socket");
             return ERROR;
         }
         send_changes_to_clients(data->username, CMD_DOWNLOAD, packet.payload, data->socket);
@@ -326,14 +303,12 @@ int handle_packet(thread_data_t *data_ptr, int *conn_closed)
     case CMD_DOWNLOAD:
         if (send_file(data->socket, packet.payload, data->userpath) < 0)
         {
-            perror("Error sending file to socket");
             return ERROR;
         }
         break;
     case CMD_DELETE:
         if (delete_file(data->socket, packet.payload, data->userpath) < 0)
         {
-            perror("Error deleting file");
             return ERROR;
         }
         send_changes_to_clients(data->username, CMD_DELETE, packet.payload, data->socket);
@@ -341,13 +316,8 @@ int handle_packet(thread_data_t *data_ptr, int *conn_closed)
     case CMD_LIST_SERVER:
         if (list_server(data->socket, data->userpath) < 0)
         {
-            perror("Error on list server");
             return ERROR;
         }
-        break;
-    case CMD_LIST_CLIENT:
-        perror("Unexpected list client command");
-        return ERROR;
         break;
     case CMD_EXIT:
         send_connection_response(EXIT_SUCCESS, data->socket);
@@ -357,16 +327,11 @@ int handle_packet(thread_data_t *data_ptr, int *conn_closed)
         pthread_mutex_unlock(&list_mutex);
         break;
     case DATA:
-        printf("DATA packet not expected\n");
-        break;
+    case CMD_LOGIN:
+    case CMD_LIST_CLIENT:
     case CMD_WATCH_CHANGES:
-        printf("WATCH_CHANGES packet not expected\n");
-        break;
     case CMD_NOTIFY_CHANGES:
-        printf("NOTIFY_CHANGES packet not expected\n");
-        break;
     case CMD_GET_SYNC_DIR:
-        printf("GET_SYNC_DIR packet not expected\n");
         break;
     }
     
@@ -416,7 +381,6 @@ void send_changes_to_clients(char *username, type_packet_t packet_type, char* fi
         {
             if (data_socket[i] == sender_socket)
             {
-                printf("WIll not send notification to client because socket is equal\n");
                 continue;
             }
             packet_t *packet = create_packet(packet_type, filename, strlen(filename) + 1);
@@ -427,13 +391,11 @@ void send_changes_to_clients(char *username, type_packet_t packet_type, char* fi
 
 void update_socket_notify(const char *username, int socket) {
     list_users_t *current = users;
-    printf("SALVANDO NOVO NOTIFY SOCKET\n");
 
     while (current != NULL) {
         if (strcmp(current->username, username) == 0) {
             if (!(current->socketNotify[0])) {
                 current->socketNotify[0] = socket;
-                printf("SOCKET: %d\n", current->socketNotify[0]);
             }
             else if (!(current->socketNotify[1])) {
                 current->socketNotify[1] = socket;
@@ -456,7 +418,6 @@ void *handle_new_client_connection(void *args)
     packet_t *packet_buffer = malloc(sizeof(packet_t));
     if (packet_buffer == NULL)
     {
-        perror("ERROR allocating memory for packet\n");
         return (void *)-1;
     }
 
@@ -466,7 +427,6 @@ void *handle_new_client_connection(void *args)
     {
         if (conn_closed)
         {
-            printf("Conexão do client encerrada.\n");
             break;
         }
 
@@ -474,13 +434,11 @@ void *handle_new_client_connection(void *args)
         packet_buffer = receive_packet_wo_payload(socket);
         if (receive_packet_payload(socket, packet_buffer) < 0)
         {
-            perror("Failed to receive packet payload");
             continue;
         }
 
         if (!packet_buffer)
         {
-            printf("Error reading packet from socket. Closing connection\n");
             close(socket);
             break;
         }
@@ -491,11 +449,10 @@ void *handle_new_client_connection(void *args)
             create_folder(username);
             strcat(path, username);
             folderChecked = 1;
-            // Se existir a pasta do usuário no servidor, não cria uma nova, simplesmente faz sincronização && cria uma conexão na lista de conexões.
+
             pthread_mutex_lock(&list_mutex);
             users = insert_or_update_new_connection(users, username, socket, &conn_closed, 0);
             pthread_mutex_unlock(&list_mutex);
-            // Se não existir a pasta: cria e faz conexão com o servidor
 
             if (conn_closed)
             {
@@ -504,8 +461,6 @@ void *handle_new_client_connection(void *args)
             }
             continue;
         }
-
-        // printf("\nINITIAL SYNC: %d\n", packet_buffer->type);
 
         if (packet_buffer->type == INITIAL_SYNC)
         {   
@@ -533,7 +488,6 @@ void *handle_new_client_connection(void *args)
         thread_data_t *thread_data = malloc(sizeof(thread_data_t));
         if (thread_data == NULL)
         {
-            perror("ERROR allocating memory for thread data\n");
             continue;
         }
 
@@ -542,13 +496,6 @@ void *handle_new_client_connection(void *args)
         thread_data->username = strdup(username);
         thread_data->userpath = strdup(path);
 
-        printf("Received packet:\n");
-        print_packet(packet_buffer);
-
-        if (handle_packet(thread_data, &conn_closed) < 0)
-        {
-            perror("Error handling packet received");
-        }
     }
 
     free(packet_buffer);
@@ -599,7 +546,6 @@ int main(int argc, char *argv[])
 
         if (pthread_create(&thread, NULL, handle_new_client_connection, sock_ptr) < 0)
         {
-            perror("ERROR creating thread");
             continue;
         }
     }
