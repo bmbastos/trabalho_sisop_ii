@@ -14,7 +14,7 @@
 #include "./commands.h"
 
 #define DIR_FOLDER_PREFIX "sync_dir_"
-void send_changes_to_clients(char *username, type_packet_t packet_type, char* filename);
+void send_changes_to_clients(char *username, type_packet_t packet_type, char* filename, int sender_socket);
 
 typedef struct
 {
@@ -321,7 +321,7 @@ int handle_packet(thread_data_t *data_ptr, int *conn_closed)
             perror("Error receiving file from socket");
             return ERROR;
         }
-        send_changes_to_clients(data->username, CMD_DOWNLOAD, packet.payload);
+        send_changes_to_clients(data->username, CMD_DOWNLOAD, packet.payload, data->socket);
         break;
     case CMD_DOWNLOAD:
         if (send_file(data->socket, packet.payload, data->userpath) < 0)
@@ -336,7 +336,7 @@ int handle_packet(thread_data_t *data_ptr, int *conn_closed)
             perror("Error deleting file");
             return ERROR;
         }
-        send_changes_to_clients(data->username, CMD_DELETE, packet.payload);
+        send_changes_to_clients(data->username, CMD_DELETE, packet.payload, data->socket);
         break;
     case CMD_LIST_SERVER:
         if (list_server(data->socket, data->userpath) < 0)
@@ -388,16 +388,39 @@ void get_socket_notify(const char *username, int result[2]) {
     }
 }
 
-void send_changes_to_clients(char *username, type_packet_t packet_type, char* filename)
+void get_data_sockets(const char *username, int result[2]) {
+    list_users_t *current = users;
+    result[0] = 0;
+    result[1] = 0;
+
+    while (current != NULL) {
+        if (strcmp(current->username, username) == 0) {
+            result[0] = current->socket[0];
+            result[1] = current->socket[1];
+            break;
+        }
+        current = current->next;
+    }
+}
+
+void send_changes_to_clients(char *username, type_packet_t packet_type, char* filename, int sender_socket)
 {
-    int userSockets[2];
-    get_socket_notify(username, userSockets);
+    int notify_sockets[2];
+    get_socket_notify(username, notify_sockets);
+    int data_socket[2];
+    get_data_sockets(username, data_socket);
+
     for(int i = 0; i < 2; ++i)
     {
-        if(userSockets[i] != 0)
+        if(notify_sockets[i] != 0)
         {
+            if (data_socket[i] == sender_socket)
+            {
+                printf("WIll not send notification to client because socket is equal\n");
+                continue;
+            }
             packet_t *packet = create_packet(packet_type, filename, strlen(filename) + 1);
-            send_packet_to_socket(userSockets[i], packet);
+            send_packet_to_socket(notify_sockets[i], packet);
         }
     }
 }

@@ -7,6 +7,7 @@
 #include "./commands.h"
 #include "../commons/commons.h"
 #include <unistd.h>
+#include <errno.h>
 
 #define MAX_ARGUMENTS 5
 #define MAX_ARGUMENT_LENGTH 50
