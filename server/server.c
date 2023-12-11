@@ -435,13 +435,14 @@ void update_socket_notify(const char *username, int socket) {
                 current->socketNotify[0] = socket;
                 printf("SOCKET: %d\n", current->socketNotify[0]);
             }
-            else if (!(current->socketNotify[1] == 0)) {
+            else if (!(current->socketNotify[1])) {
                 current->socketNotify[1] = socket;
             }
             break;
         }
         current = current->next;
     }
+    printf("First socket notify: %d | Second socket notify: %d\n\n", users->socketNotify[0], users->socketNotify[1]);
 }
 
 void *handle_new_client_connection(void *args)
