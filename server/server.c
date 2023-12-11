@@ -321,7 +321,7 @@ int handle_packet(thread_data_t *data_ptr, int *conn_closed)
             perror("Error receiving file from socket");
             return ERROR;
         }
-        send_changes_to_clients(data->userpath);
+        send_changes_to_clients(data->username);
         break;
     case CMD_DOWNLOAD:
         if (send_file(data->socket, packet.payload, data->userpath) < 0)
@@ -336,7 +336,7 @@ int handle_packet(thread_data_t *data_ptr, int *conn_closed)
             perror("Error deleting file");
             return ERROR;
         }
-        send_changes_to_clients(data->userpath);
+        send_changes_to_clients(data->username);
         break;
     case CMD_LIST_SERVER:
         if (list_server(data->socket, data->userpath) < 0)
@@ -370,13 +370,11 @@ int handle_packet(thread_data_t *data_ptr, int *conn_closed)
         break;
     }
     
-
     return 0;
 }
 
 void get_socket_notify(const char *username, int result[2]) {
     list_users_t *current = users;
-
     result[0] = 0;
     result[1] = 0;
 
@@ -394,7 +392,6 @@ void send_changes_to_clients(char *username)
 {
     int userSockets[2];
     get_socket_notify(username, userSockets);
-    printf("NOTIFY SOCKET: %d\n", userSockets[0]);
     for(int i = 0; i < 2; ++i)
     {
         if(userSockets[i] != 0)

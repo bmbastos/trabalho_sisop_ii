@@ -381,15 +381,10 @@ void *start_inotify(void *threadArgsPtr) {
     return NULL;
 }
 
-void debug() {
-    printf("CHEGOU AQUI\n");
-}
-
 void *watch_server_changes(void *data_arg)
 {
     struct ThreadArgs *data = (struct ThreadArgs *)data_arg;
     int notification_socket = createSocket();
-    debug();
     connectToServer(notification_socket, serv_addr);
     packet_t *packet_watch = create_packet(CMD_WATCH_CHANGES, data->username, strlen(data->username) + 1);
     packet_t *packet_buffer = malloc(sizeof(packet_t));
@@ -406,6 +401,7 @@ void *watch_server_changes(void *data_arg)
 
     while (1)
     {
+        printf("READY TO RECEIVE MORE NOTIFICATIONS\n\n");
         bzero(packet_buffer, sizeof(packet_t));
         packet_buffer = receive_packet_wo_payload(notification_socket);
         if (receive_packet_payload(notification_socket, packet_buffer) < 0)
@@ -427,7 +423,10 @@ void *watch_server_changes(void *data_arg)
         }
         else
         {
-            get_sync_dir(data->username, data_socket);
+            struct ThreadArgs *initialSyncArgs = malloc(sizeof(struct ThreadArgs));
+            initialSyncArgs->username = data->username;
+            initialSyncArgs->socket = data_socket;
+            handleInitialSync((void *)initialSyncArgs);
         }
     }
 }
