@@ -294,6 +294,7 @@ void *handleInitialSync(void *threadArgsPtr)
         }
     }
 
+    printf("\nfreeing.\n");
     free(packet_buffer);
     return NULL;
 }
@@ -425,7 +426,7 @@ void *watch_server_changes(void *data_arg)
     }
 }
 
-void get_sync_dir(const char *username, int sockfd, char *username_payload, packet_t *packetUsername, pthread_t *syncThread) {
+void get_sync_dir(const char *username, int sockfd) {
     char username_array[strlen(username) + 1];
     strcpy(username_array, username);
 
@@ -459,12 +460,11 @@ void get_sync_dir(const char *username, int sockfd, char *username_payload, pack
     threadArgs->username = username;
     threadArgs->socket = sockfd;
 
-    if (pthread_create(syncThread, NULL, start_inotify, (void *)threadArgs))
+    pthread_t syncThread;
+    if (pthread_create(&syncThread, NULL, start_inotify, (void *)threadArgs))
     {
         fprintf(stderr, "Erro ao criar thread start_inotify.\n");
-        free(username_payload);
         free(threadArgs);
-        destroy_packet(packetUsername);
         exit(EXIT_FAILURE);
     }
 }
@@ -511,8 +511,8 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    pthread_t syncThread;
-    get_sync_dir(username, sockfd, username_payload, packetUsername, &syncThread);
+    // pthread_t syncThread;
+    get_sync_dir(username, sockfd);
 
     pthread_t userInterfaceThread;
 
@@ -523,7 +523,7 @@ int main(int argc, char *argv[])
     if (pthread_create(&userInterfaceThread, NULL, userInterface, (void *)&interf_data))
     {
         fprintf(stderr, "Erro ao criar thread userInterface.\n");
-        free(username_payload);
+        // free(username_payload);
         destroy_packet(packetUsername);
         exit(EXIT_FAILURE);
     }
@@ -545,7 +545,7 @@ int main(int argc, char *argv[])
 
     // pthread_join(server_changes_thread, NULL);
     pthread_join(userInterfaceThread, NULL);
-    pthread_join(syncThread, NULL);
+    // pthread_join(syncThread, NULL);
     
     // close(sockfd);
 
