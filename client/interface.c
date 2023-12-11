@@ -14,7 +14,7 @@ int parse_input(char* input, int socket, const char* username) {
         }
     } else if (strncmp(input, "delete ", 7) == 0) {
         char* argument = input + 7;
-        if (delete_file(argument, socket) < 0) {
+        if (delete_file(argument, socket, username) < 0) {
             perror("Error deleting file");
         }
     } else if (strcmp(input, "list_server") == 0) {
