@@ -336,7 +336,7 @@ int handle_packet(thread_data_t *data_ptr, int *conn_closed)
             perror("Error deleting file");
             return ERROR;
         }
-        send_changes_to_clients(data->username, CMD_DELETE, packet.payload);
+        // send_changes_to_clients(data->username, CMD_DELETE, packet.payload);
         break;
     case CMD_LIST_SERVER:
         if (list_server(data->socket, data->userpath) < 0)
