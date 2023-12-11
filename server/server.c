@@ -14,7 +14,7 @@
 #include "./commands.h"
 
 #define DIR_FOLDER_PREFIX "sync_dir_"
-void send_changes_to_clients(char *username);
+void send_changes_to_clients(char *username, type_packet_t packet_type, char* filename);
 
 typedef struct
 {
@@ -321,7 +321,7 @@ int handle_packet(thread_data_t *data_ptr, int *conn_closed)
             perror("Error receiving file from socket");
             return ERROR;
         }
-        send_changes_to_clients(data->username);
+        send_changes_to_clients(data->username, CMD_UPLOAD, packet.payload);
         break;
     case CMD_DOWNLOAD:
         if (send_file(data->socket, packet.payload, data->userpath) < 0)
@@ -336,7 +336,7 @@ int handle_packet(thread_data_t *data_ptr, int *conn_closed)
             perror("Error deleting file");
             return ERROR;
         }
-        send_changes_to_clients(data->username);
+        send_changes_to_clients(data->username, CMD_DELETE, packet.payload);
         break;
     case CMD_LIST_SERVER:
         if (list_server(data->socket, data->userpath) < 0)
@@ -388,7 +388,7 @@ void get_socket_notify(const char *username, int result[2]) {
     }
 }
 
-void send_changes_to_clients(char *username)
+void send_changes_to_clients(char *username, type_packet_t packet_type, char* filename)
 {
     int userSockets[2];
     get_socket_notify(username, userSockets);
@@ -396,9 +396,8 @@ void send_changes_to_clients(char *username)
     {
         if(userSockets[i] != 0)
         {
-            packet_t *packet = create_packet(CMD_NOTIFY_CHANGES, NULL, 0);
+            packet_t *packet = create_packet(packet_type, filename, strlen(filename) + 1);
             send_packet_to_socket(userSockets[i], packet);
-            print_packet(packet);
         }
     }
 }

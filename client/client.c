@@ -442,6 +442,7 @@ void *watch_server_changes(void *data_arg)
         }
         else
         {
+            printf("RECEIVED NOTIFICATION. UPDATING\n\n");
             struct ThreadArgs *initialSyncArgs = malloc(sizeof(struct ThreadArgs));
             initialSyncArgs->username = data->username;
             initialSyncArgs->socket = data_socket;

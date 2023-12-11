@@ -152,7 +152,7 @@ int send_packet_to_socket(int socket, const packet_t *packet)
     }
 
     print_packet(packet);
-
+    printf("Sent to socket: %d\n", socket);
     free(buffer);
     return 0;
 }
