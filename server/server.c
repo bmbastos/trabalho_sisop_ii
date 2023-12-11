@@ -523,7 +523,9 @@ void *handle_new_client_connection(void *args)
         if (packet_buffer->type == CMD_WATCH_CHANGES)
         {
             strcpy(username, packet_buffer->payload);
+            pthread_mutex_lock(&list_mutex);
             update_socket_notify(username, socket);
+            pthread_mutex_unlock(&list_mutex);
             continue;
         }
 
