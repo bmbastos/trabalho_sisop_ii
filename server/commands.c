@@ -4,6 +4,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <string.h>
+#include <dirent.h>
 #include "../commons/commons.h"
 #include "./commands.h"
 
@@ -23,13 +24,6 @@ int send_file(int client_socket, const char *filename, const char *filepath)
     fseek(file, 0, SEEK_END);
     long file_size = ftell(file);
     fseek(file, 0, SEEK_SET);
-
-    if (file_size <= 0)
-    {
-        printf("ERROR: Arquivo não existe ou vazio.\n");
-        fclose(file);
-        return -1;
-    }
 
     packet_t *packet = create_packet(CMD_DOWNLOAD, filename, strlen(filename)+1);
 
@@ -58,11 +52,16 @@ int send_file(int client_socket, const char *filename, const char *filepath)
 int receive_file(int client_socket, const char *user, const char *file_name, uint32_t lengthpayload)
 {
     packet_t *data_packet = receive_packet_from_socket(client_socket);
-    if (data_packet == NULL || data_packet->length_payload == 0 || data_packet->type != DATA)
+    if (data_packet == NULL || data_packet->type != DATA)
     {
         perror("Failed to receive DATA package.");
         return ERROR;
     }
+    // if (data_packet == NULL || data_packet->length_payload == 0 || data_packet->type != DATA)
+    // {
+    //     perror("Failed to receive DATA package.");
+    //     return ERROR;
+    // }
 
     char *filename = (char *)malloc(lengthpayload + 1);
     strncpy(filename, file_name, lengthpayload);
@@ -107,12 +106,6 @@ int delete_file(int client_socket, const char *filename, const char *filepath)
     return 1;
 }
 
-int list_client(int socket)
-{
-    perror("To be implemented");
-    return ERROR;
-}
-
 int list_server(int client_socket, const char *userpath)
 {
     char file_list[2048] = "";
@@ -132,4 +125,35 @@ int list_server(int client_socket, const char *userpath)
     }
 
     return 0;
+}
+
+void send_files(int socket, const char *userpath)
+{
+    DIR *dir;
+    struct dirent *entry;
+    char file_list[2048] = "";
+    char delimiter = '|';
+    int has_files = 0;
+
+    dir = opendir(userpath);
+
+    if (dir == NULL) {
+        perror("Error opening directory");
+        return;
+    }
+
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
+            if (has_files) {
+                strncat(file_list, &delimiter, 1);
+            } else {
+                has_files = 1;
+            }
+            strcat(file_list, entry->d_name);
+        }
+    }
+
+    closedir(dir);
+
+    send_packet_to_socket(socket, create_packet(FILE_LIST, file_list, strlen(file_list) + 1));
 }

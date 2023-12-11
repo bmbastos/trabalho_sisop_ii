@@ -9,7 +9,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#define SHOULD_PRINT_PACKETS 0
+#define SHOULD_PRINT_PACKETS 1
 #define ERROR -1
 #define SYNC_DIR_BASE_PATH "./sync_dir_"
 
@@ -24,7 +24,10 @@ typedef enum {
     CMD_GET_SYNC_DIR,
     CMD_WATCH_CHANGES,
     CMD_NOTIFY_CHANGES,
-    CMD_EXIT
+    CMD_EXIT,
+    INITIAL_SYNC,
+    FINISH_INITIAL_SYNC,
+    FILE_LIST
 } type_packet_t;
 
 typedef struct packet {
@@ -32,6 +35,20 @@ typedef struct packet {
     uint32_t length_payload;
     char* payload;
 } packet_t;
+
+struct ThreadArgs {
+    const char *username;
+    int socket;
+};
+
+typedef struct thread_data
+{    
+    struct sockaddr_in serv_addr;
+    packet_t packet;
+    char *userpath;
+    char *username;
+    int socket;
+} thread_data_t;
 
 packet_t* create_packet(type_packet_t type, const char* payload, int payload_length);
 void destroy_packet(packet_t* packet);

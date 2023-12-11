@@ -7,6 +7,7 @@
 #include "./commands.h"
 #include "../commons/commons.h"
 #include <unistd.h>
+#include <errno.h>
 
 #define MAX_ARGUMENTS 5
 #define MAX_ARGUMENT_LENGTH 50
@@ -14,7 +15,7 @@
 #define MAX_MESSAGE_LENGTH 100
 #define BUFFER_SIZE 1024
 
-void *userInterface(void *sockfd);
+void *userInterface(void *args_ptr);
 int send_command_to_socket(int socket, const char *command, const char *argument);
 void handleDownload(const char *filename, int sockfd);
 

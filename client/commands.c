@@ -1,6 +1,7 @@
 #include "./commands.h"
 #include "./interface.h"
 #include <sys/select.h>
+#include <sys/stat.h>
 
 int upload_file(const char *filepath, int socket) {
     if (filepath == NULL) {
@@ -38,11 +39,12 @@ int upload_file(const char *filepath, int socket) {
     destroy_packet(filename_packet);
 
     packet_t *data_packet = create_packet(DATA, file_buffer, file_size);
-    if (data_packet->length_payload == 0)
-    {
-        perror("Packet is malformed\n");
-        return ERROR;
-    }
+
+    // if (data_packet->length_payload == 0)
+    // {
+    //     perror("Packet is malformed\n");
+    //     return ERROR;
+    // }
     free(file_buffer);
 
     if (!data_packet) {
@@ -60,7 +62,7 @@ int upload_file(const char *filepath, int socket) {
     return 0;
 }
 
-int download_file(const char *filename, int socket, int on_sync_dir)
+int download_file(const char *filename, int socket, int on_sync_dir, const char* user)
 {
     packet_t *packet = create_packet(CMD_DOWNLOAD, filename, strlen(filename)+1);
 
@@ -72,10 +74,19 @@ int download_file(const char *filename, int socket, int on_sync_dir)
 
     char file_path[270];
     char basepath[50];
+
+    mkdir(DOWNLOADS_FILE_PATH, 0777);
+
     if (on_sync_dir)
+    {
         strcpy(basepath, CLIENT_FILE_PATH);
+        strcat(basepath, user);
+    }
+        
     else
+    {
         strcpy(basepath, DOWNLOADS_FILE_PATH);
+    }
         
     snprintf(file_path, sizeof(file_path), "%s/%s", basepath, filename);
 
@@ -110,7 +121,7 @@ int download_file(const char *filename, int socket, int on_sync_dir)
     return 0;
 }
 
-int delete_file(const char *filename, int socket)
+int delete_file(const char *filename, int socket, const char* username)
 {
     packet_t *packet = create_packet(CMD_DELETE, filename, strlen(filename)+1);
 
@@ -120,7 +131,33 @@ int delete_file(const char *filename, int socket)
         return ERROR;
     }
 
+    char currentPath[256];
+
+    if (getcwd(currentPath, sizeof(currentPath)) == NULL)
+    {
+        perror("getcwd");
+        exit(EXIT_FAILURE);
+    }
+
+    delete_local_file(filename, username, currentPath);
+
     return 0;
+}
+
+void delete_local_file(const char *filename, const char *username, const char *filepath)
+{
+    char file_path[1024];
+    snprintf(file_path, sizeof(file_path), "%s/sync_dir_%s/%s", filepath, username, filename);
+
+    printf("file path delete : %s\n", file_path);
+
+    if (remove(file_path) != 0)
+    {
+        perror("Error deleting file");
+        return;
+    }
+
+    printf("File %s deleted successfully.\n", filename);
 }
 
 int list_server(int socket)
@@ -149,14 +186,20 @@ int list_server(int socket)
     return 0;
 }
 
-int list_client(int socket)
+int list_client(int socket, const char* user)
 {
     char file_list[2048] = "";
-    const char *basepath = CLIENT_FILE_PATH;
-
+    char basepath[100] = CLIENT_FILE_PATH;
+    strcat(basepath, user);
     get_file_metadata_list(basepath, file_list);
 
-    printf("(CLIENT side debug) file_list client: %s\n", file_list);
+    if(strcmp(file_list, "") == 0) {
+        printf("List client is empty!\n");
+    }
+    else
+    {
+        printf("(CLIENT side debug) file_list client: %s\n", file_list);
+    }
 
     return 0;
 }

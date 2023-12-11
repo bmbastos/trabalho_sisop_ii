@@ -6,3 +6,4 @@ int receive_file(int client_socket, const char* user, const char *filename, uint
 int delete_file(int client_socket, const char *filename, const char *filepath);
 int list_client(int socket);
 int list_server(int client_socket, const char *userpath);
+void send_files(int socket, const char *userpath);

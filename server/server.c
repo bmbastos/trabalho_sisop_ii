@@ -7,19 +7,20 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <sys/stat.h>
+#ifdef __linux__
 #include <sys/inotify.h>
+#endif
 #include "../commons/commons.h"
 #include "./commands.h"
 
 #define DIR_FOLDER_PREFIX "sync_dir_"
+void send_changes_to_clients(char *username, type_packet_t packet_type, char* filename, int sender_socket);
 
 typedef struct
 {
-    packet_t packet;
-    char userpath[50];
     char *username;
     int socket;
-} thread_data_t;
+} notify_data_t;
 
 typedef struct list_of_users
 {
@@ -41,7 +42,7 @@ void print_user_list(list_users_t *list);
 void free_user_list(list_users_t *list);
 
 // Funções relacionadas ao servidor
-int setup_notification_observer(int socket, char* username);
+void* setup_notification_observer(void* args);
 int setupSocket(int *sockfd, int port);
 int handle_packet(thread_data_t *data_ptr, int *conn_closed);
 packet_t *receive_packet_from_socket(int socket);
@@ -92,6 +93,7 @@ int send_connection_response(int response, int socket)
 
 list_users_t *insert_or_update_new_connection(list_users_t *list, char *username, int user_socket, int *conn_closed, int isNotifySocket)
 {
+    printf("Inserting new conn\n");
     if (list == NULL) // Lista está vazia: cria um novo usuário
     {
         send_connection_response(EXIT_SUCCESS, user_socket);
@@ -112,7 +114,6 @@ list_users_t *insert_or_update_new_connection(list_users_t *list, char *username
                 else
                 {
                     list->socket[0] = user_socket;
-                    list->socketNotify[0] = 0;
                 }
             }
             else
@@ -126,7 +127,6 @@ list_users_t *insert_or_update_new_connection(list_users_t *list, char *username
                 else
                 {
                     list->socket[1] = user_socket;
-                    list->socketNotify[1] = 0;
                 }
             }
         }
@@ -180,7 +180,7 @@ list_users_t *remove_user_connection(list_users_t *list, char *user_name, int us
                     // Remove a conexão
                     current->connections -= 1;
                     current->socket[i] = 0;
-
+                    close(user_socket);
                     // Se não houver mais conexões, remova o usuário da lista
                     if (current->connections == 0)
                     {
@@ -190,6 +190,7 @@ list_users_t *remove_user_connection(list_users_t *list, char *user_name, int us
                             list = current->next;
                             free(current->username);
                             free(current);
+                            users = list;
                             return list;
                         }
                         else
@@ -198,10 +199,12 @@ list_users_t *remove_user_connection(list_users_t *list, char *user_name, int us
                             previous->next = current->next;
                             free(current->username);
                             free(current);
+                            users = list;
                             return list;
                         }
                     }
 
+                    users = list;
                     return list;
                 }
             }
@@ -297,9 +300,11 @@ int handle_login(int socket, const char *username)
 int handle_packet(thread_data_t *data_ptr, int *conn_closed)
 {
     thread_data_t *data = data_ptr;
-    int n;
+    free(data_ptr);
+
     packet_t packet = data->packet;
     type_packet_t cmd = packet.type;
+    int n;
 
     switch (cmd)
     {
@@ -316,6 +321,7 @@ int handle_packet(thread_data_t *data_ptr, int *conn_closed)
             perror("Error receiving file from socket");
             return ERROR;
         }
+        send_changes_to_clients(data->username, CMD_DOWNLOAD, packet.payload, data->socket);
         break;
     case CMD_DOWNLOAD:
         if (send_file(data->socket, packet.payload, data->userpath) < 0)
@@ -330,6 +336,7 @@ int handle_packet(thread_data_t *data_ptr, int *conn_closed)
             perror("Error deleting file");
             return ERROR;
         }
+        send_changes_to_clients(data->username, CMD_DELETE, packet.payload, data->socket);
         break;
     case CMD_LIST_SERVER:
         if (list_server(data->socket, data->userpath) < 0)
@@ -339,11 +346,8 @@ int handle_packet(thread_data_t *data_ptr, int *conn_closed)
         }
         break;
     case CMD_LIST_CLIENT:
-        if (list_client(data->socket) < 0)
-        {
-            perror("Error sending list of clients");
-            return ERROR;
-        }
+        perror("Unexpected list client command");
+        return ERROR;
         break;
     case CMD_EXIT:
         send_connection_response(EXIT_SUCCESS, data->socket);
@@ -361,19 +365,20 @@ int handle_packet(thread_data_t *data_ptr, int *conn_closed)
     case CMD_NOTIFY_CHANGES:
         printf("NOTIFY_CHANGES packet not expected\n");
         break;
+    case CMD_GET_SYNC_DIR:
+        printf("GET_SYNC_DIR packet not expected\n");
+        break;
     }
-
+    
     return 0;
 }
 
 void get_socket_notify(const char *username, int result[2]) {
     list_users_t *current = users;
-
-    result[0] = -1;
-    result[1] = -1;
+    result[0] = 0;
+    result[1] = 0;
 
     while (current != NULL) {
-        // Check if the current user is the one we're looking for
         if (strcmp(current->username, username) == 0) {
             result[0] = current->socketNotify[0];
             result[1] = current->socketNotify[1];
@@ -383,128 +388,61 @@ void get_socket_notify(const char *username, int result[2]) {
     }
 }
 
-void send_changes_to_clients(char *username, int inotifyFd, int socket)
-{
-    char buffer[4096];
-    ssize_t len;
-    char *ptr;
-    const struct inotify_event *event;
-    char filename[50];
-    char filepath[100];
-    snprintf(filepath, sizeof(filepath), "./%s%s", DIR_FOLDER_PREFIX, username);
+void get_data_sockets(const char *username, int result[2]) {
+    list_users_t *current = users;
+    result[0] = 0;
+    result[1] = 0;
 
-    int userSockets[2];
-
-    while(1)
-    {
-        len = read(inotifyFd, buffer, sizeof(buffer));
-
-        if (len <= 0)
-            continue;
-
-        for (ptr = buffer; ptr < buffer + len; ptr += sizeof(struct inotify_event) + event->len)
-        {
-            event = (const struct inotify_event *)ptr;
-            get_socket_notify(username, userSockets);
-
-            if (event->mask & IN_CREATE)
-            {
-                strcpy(filename, event->name);
-                printf("File %s created.\n", filename);
-                
-                for(int i = 0; i < 2; ++i)
-                {
-                    if(userSockets[i] != 0)
-                    {
-                        packet_t *packet = create_packet(CMD_NOTIFY_CHANGES, filename, strlen(filename)+1);
-                        send_packet_to_socket(userSockets[i], packet);
-                        print_packet(packet);
-                        // send_file(userSockets[i], filename, filepath);
-                    }
-                }
-            }
-            else if (event->mask & IN_DELETE)
-            {
-                strcpy(filename, event->name);
-                printf("File %s deleted.\n", filename);
-                for(int i = 0; i < 2; ++i)
-                {
-                    if(userSockets[i] != 0)
-                    {
-                        packet_t *packet = create_packet(CMD_NOTIFY_CHANGES, filename, strlen(filename)+1);
-                        send_packet_to_socket(userSockets[i], packet);
-                        print_packet(packet);
-                        // delete_file(userSockets[i], filename, filepath);
-                    }
-                }
-            }
-            else if (event->mask & IN_MODIFY)
-            {
-                strcpy(filename, event->name);
-                printf("File %s modified.\n", filename);
-                for(int i = 0; i < 2; ++i)
-                {
-                    if(userSockets[i] != 0)
-                    {
-                        packet_t *packet = create_packet(CMD_NOTIFY_CHANGES, filename, strlen(filename)+1);
-                        send_packet_to_socket(userSockets[i], packet);
-                        print_packet(packet);
-                        // send_file(userSockets[i], filename, filepath);
-                    }
-                }
-            }
+    while (current != NULL) {
+        if (strcmp(current->username, username) == 0) {
+            result[0] = current->socket[0];
+            result[1] = current->socket[1];
+            break;
         }
+        current = current->next;
     }
 }
 
-int setup_notification_observer(int socket, char* username)
+void send_changes_to_clients(char *username, type_packet_t packet_type, char* filename, int sender_socket)
 {
-    char path[100] = "./";
+    int notify_sockets[2];
+    get_socket_notify(username, notify_sockets);
+    int data_socket[2];
+    get_data_sockets(username, data_socket);
 
-    strcat(path, DIR_FOLDER_PREFIX);
-    strcat(path, username);
-
-    int inotifyFd, watchFd;
-
-    inotifyFd = inotify_init();
-
-    if (inotifyFd == -1)
+    for(int i = 0; i < 2; ++i)
     {
-        perror("inotify_init");
-        return ERROR;
-    }
-
-    watchFd = inotify_add_watch(inotifyFd, path, IN_MODIFY | IN_CLOSE_WRITE | IN_CREATE | IN_MOVED_FROM | IN_MOVED_TO | IN_DELETE);
-
-    if (watchFd == -1)
-    {
-        perror("inotify_add_watch");
-        return ERROR;
-    }
-
-    printf("Watching for file modifications in the server directory...\n");
-
-    while (1)
-    {
-        send_changes_to_clients(username, inotifyFd, socket);
+        if(notify_sockets[i] != 0)
+        {
+            if (data_socket[i] == sender_socket)
+            {
+                printf("WIll not send notification to client because socket is equal\n");
+                continue;
+            }
+            packet_t *packet = create_packet(packet_type, filename, strlen(filename) + 1);
+            send_packet_to_socket(notify_sockets[i], packet);
+        }
     }
 }
 
 void update_socket_notify(const char *username, int socket) {
     list_users_t *current = users;
+    printf("SALVANDO NOVO NOTIFY SOCKET\n");
 
     while (current != NULL) {
         if (strcmp(current->username, username) == 0) {
             if (!(current->socketNotify[0])) {
                 current->socketNotify[0] = socket;
+                printf("SOCKET: %d\n", current->socketNotify[0]);
             }
-            else if (!(current->socketNotify[1] == 0)) {
+            else if (!(current->socketNotify[1])) {
                 current->socketNotify[1] = socket;
             }
             break;
         }
         current = current->next;
     }
+    printf("First socket notify: %d | Second socket notify: %d\n\n", users->socketNotify[0], users->socketNotify[1]);
 }
 
 void *handle_new_client_connection(void *args)
@@ -547,44 +485,49 @@ void *handle_new_client_connection(void *args)
             break;
         }
 
-        if (folderChecked == 0)
+        if (packet_buffer->type == CMD_LOGIN)
         {
-            if (packet_buffer->type == CMD_LOGIN)
-            {
-                strcpy(username, packet_buffer->payload);
-                create_folder(username);
-                strcat(path, username);
-                folderChecked = 1;
-                // Se existir a pasta do usuário no servidor, não cria uma nova, simplesmente faz sincronização && cria uma conexão na lista de conexões.
-                pthread_mutex_lock(&list_mutex);
-                users = insert_or_update_new_connection(users, username, socket, &conn_closed, 0);
-                pthread_mutex_unlock(&list_mutex);
-                // Se não existir a pasta: cria e faz conexão com o servidor
+            strcpy(username, packet_buffer->payload);
+            create_folder(username);
+            strcat(path, username);
+            folderChecked = 1;
+            // Se existir a pasta do usuário no servidor, não cria uma nova, simplesmente faz sincronização && cria uma conexão na lista de conexões.
+            pthread_mutex_lock(&list_mutex);
+            users = insert_or_update_new_connection(users, username, socket, &conn_closed, 0);
+            pthread_mutex_unlock(&list_mutex);
+            // Se não existir a pasta: cria e faz conexão com o servidor
 
-                if (conn_closed)
-                {
-                    printf("Conexão recusada.\n");
-                    break;
-                }
-                continue;
-            }
-            else if (packet_buffer->type == CMD_WATCH_CHANGES)
+            if (conn_closed)
             {
-                strcpy(username, packet_buffer->payload);
-                update_socket_notify(username, socket);
+                printf("Conexão recusada.\n");
+                break;
+            }
+            continue;
+        }
 
-                setup_notification_observer(socket, packet_buffer->payload);
-                // if (setup_notification_observer(socket, packet_buffer->payload) < 0)
-                // {
-                    // perror("Failed to setup user's notification observer");
-                // }
-                continue;
-            }
-            else
+        // printf("\nINITIAL SYNC: %d\n", packet_buffer->type);
+
+        if (packet_buffer->type == INITIAL_SYNC)
+        {   
+            strcpy(username, packet_buffer->payload);
+
+            send_files(socket, path);
+
+            if (conn_closed)
             {
-                printf("Expected first packet from client to be a CMD_LOGIN or CMD_WATCH_CHANGES\n");
-                continue;
+                printf("Conexão recusada.\n");
+                break;
             }
+            continue;
+        }
+
+        if (packet_buffer->type == CMD_WATCH_CHANGES)
+        {
+            strcpy(username, packet_buffer->payload);
+            pthread_mutex_lock(&list_mutex);
+            update_socket_notify(username, socket);
+            pthread_mutex_unlock(&list_mutex);
+            continue;
         }
 
         thread_data_t *thread_data = malloc(sizeof(thread_data_t));
@@ -596,8 +539,8 @@ void *handle_new_client_connection(void *args)
 
         thread_data->packet = *packet_buffer;
         thread_data->socket = socket;
-        thread_data->username = username;
-        strcpy(thread_data->userpath, path);
+        thread_data->username = strdup(username);
+        thread_data->userpath = strdup(path);
 
         printf("Received packet:\n");
         print_packet(packet_buffer);
@@ -611,8 +554,6 @@ void *handle_new_client_connection(void *args)
     free(packet_buffer);
     return (void *)0;
 }
-
-// =============================================================================== MAIN ======================================================================
 
 int main(int argc, char *argv[])
 {
@@ -643,7 +584,7 @@ int main(int argc, char *argv[])
 
     while (1)
     {
-        newsockfd = -1;
+        newsockfd = 0;
         if ((newsockfd = accept(sockfd, (struct sockaddr *)&cli_addr, &clilen)) < 0)
         {
             perror("ERROR on accept\n");
@@ -655,6 +596,7 @@ int main(int argc, char *argv[])
         pthread_t thread;
         int *sock_ptr = malloc(sizeof(int));
         *sock_ptr = newsockfd;
+
         if (pthread_create(&thread, NULL, handle_new_client_connection, sock_ptr) < 0)
         {
             perror("ERROR creating thread");

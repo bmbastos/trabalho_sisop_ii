@@ -72,6 +72,10 @@ const char *get_packet_type_name(type_packet_t type)
         return "CMD_WATCH_CHANGES";
     case CMD_NOTIFY_CHANGES:
         return "CMD_NOTIFY_CHANGES";
+    case INITIAL_SYNC:
+        return "INITIAL_SYNC";
+    case FILE_LIST:
+        return "FILE_LIST";
     }
 }
 
@@ -148,8 +152,7 @@ int send_packet_to_socket(int socket, const packet_t *packet)
     }
 
     print_packet(packet);
-    printf("Packet enviado com sucesso\n");
-
+    printf("Sent to socket: %d\n", socket);
     free(buffer);
     return 0;
 }
