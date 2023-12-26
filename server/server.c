@@ -150,9 +150,9 @@ list_users_t *insert_or_update_new_connection(list_users_t *list, char *username
 list_users_t *remove_user_connection(list_users_t *list, char *user_name, int user_socket)
 {
     printf("Removendo conexão do usuário %s\n", user_name);
-
     if (list == NULL)
     {
+        printf("Lista de usuários vazia!\n");
         return NULL;
     }
 
@@ -164,7 +164,7 @@ list_users_t *remove_user_connection(list_users_t *list, char *user_name, int us
         if (strcmp(current->username, user_name) == 0)
         {
             // Verifica se a conexão existe para o IP e o Socket fornecidos
-            for (int i = 0; i < current->connections; ++i)
+            for (int i = 0; i < 2; ++i)
             {
                 if (current->socket[i] == user_socket)
                 {
@@ -286,46 +286,43 @@ int setupSocket(int *sockfd, int port)
 
 int handle_packet(thread_data_t *data_ptr, int *conn_closed)
 {
-    thread_data_t *data = data_ptr;
-    free(data_ptr);
-
-    packet_t packet = data->packet;
+    packet_t packet = data_ptr->packet;
     type_packet_t cmd = packet.type;
     int n;
 
     switch (cmd)
     {
     case CMD_UPLOAD:
-        if (receive_file(data->socket, data->userpath, packet.payload, packet.length_payload) < 0)
+        if (receive_file(data_ptr->socket, data_ptr->userpath, packet.payload, packet.length_payload) < 0)
         {
             return ERROR;
         }
-        send_changes_to_clients(data->username, CMD_DOWNLOAD, packet.payload, data->socket);
+        send_changes_to_clients(data_ptr->username, CMD_DOWNLOAD, packet.payload, data_ptr->socket);
         break;
     case CMD_DOWNLOAD:
-        if (send_file(data->socket, packet.payload, data->userpath) < 0)
+        if (send_file(data_ptr->socket, packet.payload, data_ptr->userpath) < 0)
         {
             return ERROR;
         }
         break;
     case CMD_DELETE:
-        if (delete_file(data->socket, packet.payload, data->userpath) < 0)
+        if (delete_file(data_ptr->socket, packet.payload, data_ptr->userpath) < 0)
         {
             return ERROR;
         }
-        send_changes_to_clients(data->username, CMD_DELETE, packet.payload, data->socket);
+        send_changes_to_clients(data_ptr->username, CMD_DELETE, packet.payload, data_ptr->socket);
         break;
     case CMD_LIST_SERVER:
-        if (list_server(data->socket, data->userpath) < 0)
+        if (list_server(data_ptr->socket, data_ptr->userpath) < 0)
         {
             return ERROR;
         }
         break;
     case CMD_EXIT:
-        send_connection_response(EXIT_SUCCESS, data->socket);
+        send_connection_response(EXIT_SUCCESS, data_ptr->socket);
         *conn_closed = 1;
         pthread_mutex_lock(&list_mutex);
-        users = remove_user_connection(users, data->username, data->socket);
+        users = remove_user_connection(users, data_ptr->username, data_ptr->socket);
         pthread_mutex_unlock(&list_mutex);
         printf("User removed\n");
         break;
@@ -336,8 +333,11 @@ int handle_packet(thread_data_t *data_ptr, int *conn_closed)
     case CMD_NOTIFY_CHANGES:
     case CMD_GET_SYNC_DIR:
         break;
+    default:
+        fprintf(stderr, "Comando desconhecido\n");
+        return ERROR;
+        break;
     }
-    
     return 0;
 }
 
@@ -414,34 +414,26 @@ void *handle_new_client_connection(void *args)
 {
     int socket = *((int *)args);
     free(args);
+
     char username[50];
     char path[50];
+
     strcpy(path, DIR_FOLDER_PREFIX);
     int folderChecked = 0;
-    packet_t *packet_buffer = malloc(sizeof(packet_t));
-    if (packet_buffer == NULL)
-    {
-        return (void *)-1;
-    }
-
+    
+    packet_t *packet_buffer;
     int conn_closed = 0;
 
-    while (1)
+    while (!conn_closed)
     {
-        if (conn_closed)
-        {
+        packet_buffer = receive_packet_wo_payload(socket);
+        if (!packet_buffer) {
+            close(socket);
             break;
         }
-        bzero(packet_buffer, sizeof(packet_t));
-        packet_buffer = receive_packet_wo_payload(socket);
+
         if (receive_packet_payload(socket, packet_buffer) < 0)
         {
-            continue;
-        }
-
-        if (!packet_buffer)
-        {
-            close(socket);
             break;
         }
 
@@ -461,13 +453,10 @@ void *handle_new_client_connection(void *args)
                 printf("Conexão recusada.\n");
                 break;
             }
-            continue;
         }
-
-        if (packet_buffer->type == INITIAL_SYNC)
+        else if (packet_buffer->type == INITIAL_SYNC)
         {   
             strcpy(username, packet_buffer->payload);
-
             send_files(socket, path);
 
             if (conn_closed)
@@ -475,33 +464,47 @@ void *handle_new_client_connection(void *args)
                 printf("Conexão recusada.\n");
                 break;
             }
-            continue;
         }
-
-        if (packet_buffer->type == CMD_WATCH_CHANGES)
+        else if (packet_buffer->type == CMD_WATCH_CHANGES)
         {
             strcpy(username, packet_buffer->payload);
             pthread_mutex_lock(&list_mutex);
             update_socket_notify(username, socket);
             pthread_mutex_unlock(&list_mutex);
-            continue;
         }
-
-        thread_data_t *thread_data = malloc(sizeof(thread_data_t));
-        if (thread_data == NULL)
+        else
         {
-            continue;
+            thread_data_t *thread_data = (thread_data_t*)malloc(sizeof(thread_data_t));
+            if (!thread_data)
+            {
+                perror("Erro ao alocar memória para thread_data - handle_new_client_connection()");
+                break;
+            }
+
+            thread_data->packet = *packet_buffer;
+            thread_data->socket = socket;
+            thread_data->username = strdup(username);
+            thread_data->userpath = strdup(path);
+
+            if (handle_packet(thread_data, &conn_closed) == ERROR)
+            {
+                printf("Cheguei no ERRO do handle packet\n");
+                free(packet_buffer);
+                free(thread_data->username);
+                free(thread_data->userpath);
+                free(thread_data);
+                return (void*)ERROR;
+            }
+            else
+            {
+                free(thread_data->username);
+                free(thread_data->userpath);
+                free(thread_data);
+            }
         }
-
-        thread_data->packet = *packet_buffer;
-        thread_data->socket = socket;
-        thread_data->username = strdup(username);
-        thread_data->userpath = strdup(path);
-
-        handle_packet(thread_data, &conn_closed);
     }
-
-    return NULL;
+    free(packet_buffer);
+    return (void*)0;
 }
 
 int main(int argc, char *argv[])
@@ -542,14 +545,14 @@ int main(int argc, char *argv[])
         }
 
         print_socket_info(cli_addr);
-
         pthread_t thread;
-        int *sock_ptr = malloc(sizeof(int));
+        int *sock_ptr = (int*)malloc(sizeof(int));
         *sock_ptr = newsockfd;
 
-        if (pthread_create(&thread, NULL, handle_new_client_connection, sock_ptr) < 0)
+        if (pthread_create(&thread, NULL, handle_new_client_connection, (void*)sock_ptr) != 0)
         {
-            continue;
+            perror("Erro ao cirar a thread handle_new_client_connection");
+            free(sock_ptr);
         }
         pthread_detach(thread);
     }

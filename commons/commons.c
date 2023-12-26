@@ -14,7 +14,7 @@ packet_t *create_packet(type_packet_t type, const char *payload, int payload_len
     packet->type = type;
     if (payload)
     {
-        packet->payload = malloc(payload_length);
+        packet->payload = (char*)malloc(payload_length);
         if (!packet->payload)
         {
             free(packet);
@@ -114,7 +114,7 @@ int send_packet_to_socket(int socket, const packet_t *packet)
 {
     size_t total_size = sizeof(packet->type) + sizeof(packet->length_payload) + packet->length_payload;
 
-    char *buffer = malloc(total_size);
+    char *buffer = (char*)malloc(total_size);
     if (!buffer)
     {
         return -1;
@@ -163,7 +163,7 @@ packet_t *receive_packet_from_socket(int socket)
 
 packet_t *receive_packet_wo_payload(int socket)
 {
-    packet_t *packet = malloc(sizeof(packet_t));
+    packet_t *packet = (packet_t*)malloc(sizeof(packet_t));
     if (!packet)
     {
         return NULL;
@@ -187,19 +187,22 @@ packet_t *receive_packet_wo_payload(int socket)
 }
 
 int receive_packet_payload(int socket, packet_t *packet) {
-    if (packet->length_payload > 0) {
-        packet->payload = malloc(packet->length_payload);
+    if (!packet) {
+        return ERROR;
+    }
+
+    if (packet->length_payload > 0 && !packet->payload) {
+        packet->payload = (char *)malloc(packet->length_payload);
         if (!packet->payload) {
-            free(packet);
             return ERROR;
         }
+    }
 
+    if (packet->length_payload > 0) {
         int bytes_received = 0;
         while (bytes_received < packet->length_payload) {
             int bytes_read = read(socket, packet->payload + bytes_received, packet->length_payload - bytes_received);
             if (bytes_read <= 0) {
-                free(packet->payload);
-                free(packet);
                 return ERROR;
             }
             bytes_received += bytes_read;
@@ -238,7 +241,7 @@ void print_socket_info(struct sockaddr_in cli_addr)
 
 char *clone_string(const char *src)
 {
-    char *dest = malloc(strlen(src) + 1);
+    char *dest = (char*)malloc(strlen(src) + 1);
     if (!dest)
     {
         return NULL;

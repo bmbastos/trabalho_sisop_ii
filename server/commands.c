@@ -26,7 +26,7 @@ int send_file(int client_socket, const char *filename, const char *filepath)
 
     packet_t *packet = create_packet(CMD_DOWNLOAD, filename, strlen(filename)+1);
 
-    packet->payload = malloc(file_size);
+    packet->payload = (char*)malloc(file_size);
     packet->length_payload = file_size;
 
     if (fread(packet->payload, 1, file_size, file) != file_size)

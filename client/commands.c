@@ -218,19 +218,18 @@ int close_connection(int socket) {
 
     if (send_packet_to_socket(socket, packet) < 0)
     {
+        free(packet);
         return ERROR;
     }
 
-    const packet_t *packetExitResponse = receive_packet_from_socket(socket);
-    int response = atoi(packetExitResponse->payload);
+    packet_t *packetExitResponse = receive_packet_from_socket(socket);
+    int response = ERROR;
     
-    close(socket);
 
-    if (response == EXIT_SUCCESS)
-    {
-        return EXIT_SUCCESS;
+    if (packetExitResponse) {
+        response = atoi(packetExitResponse->payload);
+        destroy_packet(packetExitResponse);
     }
 
-
-    return ERROR;
+    return (response == EXIT_SUCCESS) ? EXIT_SUCCESS : ERROR;
 }

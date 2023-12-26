@@ -201,7 +201,7 @@ void *handleInitialSync(void *threadArgsPtr)
         return (void*)-1;
     }
 
-    packet_t *packet_buffer = malloc(sizeof(packet_t));
+    packet_t *packet_buffer = (packet_t*)malloc(sizeof(packet_t));
     if (packet_buffer == NULL)
     {
         return (void *)-1;
@@ -337,7 +337,7 @@ void *watch_server_changes(void *data_arg)
     int notification_socket = createSocket();
     connectToServer(notification_socket, serv_addr);
     packet_t *packet_watch = create_packet(CMD_WATCH_CHANGES, data->username, strlen(data->username) + 1);
-    packet_t *packet_buffer = malloc(sizeof(packet_t));
+    packet_t *packet_buffer = (packet_t*)malloc(sizeof(packet_t));
     if (packet_buffer == NULL)
     {
         return (void *)-1;
@@ -476,6 +476,7 @@ int main(int argc, char *argv[])
 
     if (pthread_create(&userInterfaceThread, NULL, userInterface, (void *)&interf_data))
     {
+        free(username_payload);
         destroy_packet(packetUsername);
         exit(EXIT_FAILURE);
     }
