@@ -147,12 +147,21 @@ int list_server(int socket)
     if (!packetFileListBuffer)
     {
         close(socket);
+        return ERROR;
     }
 
     char *fileList = (char *)malloc(packetFileListBuffer->length_payload + 1);
 
     strncpy(fileList, packetFileListBuffer->payload, packetFileListBuffer->length_payload);
     
+    if(strcmp(fileList, "") == 0) {
+        printf("List server is empty!\n");
+    }
+    else
+    {
+        printf("(SERVER side debug) file_list server: %s\n", fileList);
+    }
+
     return 0;
 }
 

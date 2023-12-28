@@ -95,7 +95,13 @@ int list_server(int client_socket, const char *userpath)
 
     get_file_metadata_list(basepath, file_list);
 
-    printf("\n(Server side debug) file_list: %s\n", file_list);
+    if(strcmp(file_list, "") == 0) {
+        printf("List server is empty!\n");
+    }
+    else
+    {
+        printf("(SERVER side debug) file_list server: %s\n", file_list);
+    }
 
     packet_t *packetFileList = create_packet(CMD_LIST_SERVER, file_list, strlen(file_list)+1);
 
