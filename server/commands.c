@@ -50,6 +50,7 @@ int receive_file(int client_socket, const char *user, const char *file_name, uin
     packet_t *data_packet = receive_packet_from_socket(client_socket);
     if (data_packet == NULL || data_packet->type != DATA)
     {
+        destroy_packet(data_packet);
         return ERROR;
     }
 
@@ -59,6 +60,7 @@ int receive_file(int client_socket, const char *user, const char *file_name, uin
 
     char filepath[100];
     snprintf(filepath, sizeof(filepath), "%s/%s", user, filename);
+    free(filename);
     FILE *file = fopen(filepath, "wb");
     if (!file) {
         return ERROR;
@@ -110,7 +112,7 @@ int list_server(int client_socket, const char *userpath)
         destroy_packet(packetFileList);
         return -1;
     }
-
+    destroy_packet(packetFileList);
     return 0;
 }
 
@@ -141,5 +143,7 @@ void send_files(int socket, const char *userpath)
 
     closedir(dir);
 
-    send_packet_to_socket(socket, create_packet(FILE_LIST, file_list, strlen(file_list) + 1));
+    packet_t* packet = create_packet(FILE_LIST, file_list, strlen(file_list) + 1);
+    send_packet_to_socket(socket, packet);
+    destroy_packet(packet);
 }

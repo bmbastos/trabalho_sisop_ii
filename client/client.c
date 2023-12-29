@@ -19,7 +19,7 @@
 
 struct sockaddr_in serv_addr;
 int data_socket;
-void get_sync_dir(const char *username, int data_socket);
+int get_sync_dir(char *username, int data_socket);
 void delete_local_file(const char *filename, const char *username, const char *filepath);
 
 void printUsage()
@@ -71,12 +71,14 @@ struct sockaddr_in initializeServerAddress(struct hostent *server, int port)
 
 int check_login_response(int socket)
 {
-    const packet_t *login_response_packet = receive_packet_from_socket(socket);
+    packet_t *login_response_packet = receive_packet_from_socket(socket);
     int response = atoi(login_response_packet->payload);
     if (response == EXIT_SUCCESS)
     {
+        destroy_packet(login_response_packet);
         return 0;       // Logado com sucesso
     }
+    destroy_packet(login_response_packet);
     return ERROR;
 }
 
@@ -176,7 +178,6 @@ void *handleInitialSync(void *threadArgsPtr)
     char username_array[strlen(threadArgs->username) + 1];
     strcpy(username_array, threadArgs->username);
 
-    char *PATH;
     char currentPath[256];
 
     if (getcwd(currentPath, sizeof(currentPath)) == NULL)
@@ -185,6 +186,8 @@ void *handleInitialSync(void *threadArgsPtr)
     }
 
     size_t pathLength = strlen(currentPath) + strlen("/sync_dir_") + strlen(username_array) + 1;
+    
+    char* PATH;
     PATH = (char *)malloc(pathLength);
 
     if (PATH == NULL)
@@ -192,33 +195,30 @@ void *handleInitialSync(void *threadArgsPtr)
         exit(EXIT_FAILURE);
     }
 
+    sprintf(PATH, "%s/sync_dir_%s", currentPath, username_array);
+
     int socket = threadArgs->socket;
 
     packet_t *initialSyncPacket = create_packet(INITIAL_SYNC, username_array, strlen(username_array) + 1);
 
     if (send_packet_to_socket(socket, initialSyncPacket) < 0)
     {
+        free(PATH);
+        destroy_packet(initialSyncPacket);
         return (void*)-1;
     }
 
-    packet_t *packet_buffer = (packet_t*)malloc(sizeof(packet_t));
-    if (packet_buffer == NULL)
+    destroy_packet(initialSyncPacket);
+
+    packet_t *packet_buffer = receive_packet_from_socket(socket);
+    if (!packet_buffer || packet_buffer->type != FILE_LIST)
     {
+        free(PATH);
+        destroy_packet(packet_buffer);
         return (void *)-1;
     }
 
-    bzero(packet_buffer, sizeof(packet_t));
-    packet_buffer = receive_packet_wo_payload(socket);
-
-    if (receive_packet_payload(socket, packet_buffer) < 0) {
-        return (void *)-1;
-    }
-
-    if (!packet_buffer || packet_buffer->type != FILE_LIST) {
-        return (void *)-1;
-    }
-
-    char *file_list = packet_buffer->payload;
+    char *file_list = strdup(packet_buffer->payload);
 
     // Criando um array para armazenar os nomes dos arquivos do servidor
     const int MAX_FILES = 100;
@@ -236,6 +236,7 @@ void *handleInitialSync(void *threadArgsPtr)
         download_file(filename, socket, 1, threadArgs->username);
         filename = strtok(NULL, "|");
     }
+    destroy_packet(packet_buffer);
 
     // Criando um array para armazenar os nomes dos arquivos do cliente
     char client_filenames[MAX_FILES][256];
@@ -273,8 +274,8 @@ void *handleInitialSync(void *threadArgsPtr)
             delete_local_file(client_filenames[i], username_array, currentPath);
         }
     }
-
-    free(packet_buffer);
+    free(file_list);
+    free(PATH);
     return NULL;
 }
 
@@ -317,6 +318,7 @@ void *start_inotify(void *threadArgsPtr) {
     watchFd = inotify_add_watch(inotifyFd, PATH, IN_CLOSE_WRITE | IN_CREATE | IN_MOVED_FROM | IN_MOVED_TO | IN_DELETE);
     if (watchFd == -1)
     {
+        free(PATH);
         exit(EXIT_FAILURE);
     }
 
@@ -345,6 +347,7 @@ void *watch_server_changes(void *data_arg)
 
     if (send_packet_to_socket(notification_socket, packet_watch) < 0)
     {
+        destroy_packet(packet_watch);
         return (void *)-1;
     }
 
@@ -376,42 +379,47 @@ void *watch_server_changes(void *data_arg)
             download_file(packet_buffer->payload, data_socket, 1, data->username);
         }
     }
+    destroy_packet(packet_watch);
+    destroy_packet(packet_buffer);
 }
 
-void get_sync_dir(const char *username, int sockfd) {
-    char username_array[strlen(username) + 1];
-    strcpy(username_array, username);
-
-    create_folder(username_array);
+int get_sync_dir(char *username, int sockfd)
+{
+    int result = EXIT_SUCCESS;
+    create_folder(username);
 
     pthread_t initialSyncThread;
 
-    struct ThreadArgs *initialSyncArgs = malloc(sizeof(struct ThreadArgs));
-    initialSyncArgs->username = username;
+    struct ThreadArgs *initialSyncArgs = (struct ThreadArgs*)malloc(sizeof(struct ThreadArgs));
+    initialSyncArgs->username = strdup(username);
     initialSyncArgs->socket = data_socket;
 
     if (pthread_create(&initialSyncThread, NULL, handleInitialSync, (void *)initialSyncArgs))
     {
-        free(initialSyncArgs);
-        exit(EXIT_FAILURE);
+        perror("Erro ao criar a thread get_sync_dir");
+        result = EXIT_FAILURE;
     }
 
     if (pthread_join(initialSyncThread, NULL))
     {
-        free(initialSyncArgs);
-        exit(EXIT_FAILURE);
+        perror("Erro no wait da thread get_sync_dir");
+        result = EXIT_FAILURE;
     }
 
-    struct ThreadArgs *threadArgs = malloc(sizeof(struct ThreadArgs));
-    threadArgs->username = username;
+    struct ThreadArgs *threadArgs = (struct ThreadArgs*)malloc(sizeof(struct ThreadArgs));
+    threadArgs->username = strdup(username);
     threadArgs->socket = data_socket;
 
     pthread_t syncThread;
     if (pthread_create(&syncThread, NULL, start_inotify, (void *)threadArgs))
     {
-        free(threadArgs);
-        exit(EXIT_FAILURE);
+        result = EXIT_FAILURE;
     }
+    free((char*)initialSyncArgs->username);
+    free(initialSyncArgs);
+    free((char*)threadArgs->username);
+    free(threadArgs);
+    return result;
 }
 
 int main(int argc, char *argv[])
@@ -420,7 +428,7 @@ int main(int argc, char *argv[])
     {
         printUsage();
     }
-    const char *username = argv[1];
+    char *username = strdup(argv[1]);
 
     struct hostent *server = getServerHost(argv[2]);
 
@@ -435,17 +443,19 @@ int main(int argc, char *argv[])
 
     if (username_payload == NULL)
     {
+        free(username);
         exit(EXIT_FAILURE);
     }
 
     packet_t *packetUsername = create_packet(CMD_LOGIN, username_payload, strlen(username) + 1);
+    free(username_payload);
 
     if (send_packet_to_socket(data_socket, packetUsername) < 0)
     {
-        free(username_payload);
         destroy_packet(packetUsername);
         exit(EXIT_FAILURE);
     }
+    destroy_packet(packetUsername);
 
     if (check_login_response(data_socket) < 0)
     {
@@ -453,18 +463,24 @@ int main(int argc, char *argv[])
         printf("Conexão negada pelo servidor, verifique a quantidade de dispositivos conectados.\n");
         return EXIT_FAILURE;
     }
-    get_sync_dir(username, data_socket);
+   
+    if (get_sync_dir(username, data_socket) == EXIT_FAILURE)
+    {
+        free(username);
+        exit(EXIT_FAILURE);
+    }
 
     pthread_t server_changes_thread;
 
-    struct ThreadArgs *notification_data = malloc(sizeof(struct ThreadArgs));
-    notification_data->socket = data_socket;
+    struct ThreadArgs *notification_data = (struct ThreadArgs*)malloc(sizeof(struct ThreadArgs));
     notification_data->username = strdup(username);
+    notification_data->socket = data_socket;
     
     if (pthread_create(&server_changes_thread, NULL, watch_server_changes, (void *)notification_data))
     {
-        free(username_payload);
-        destroy_packet(packetUsername);
+        free(username);
+        free((char*)notification_data->username);
+        free(notification_data);
         exit(EXIT_FAILURE);
     }
 
@@ -476,15 +492,19 @@ int main(int argc, char *argv[])
 
     if (pthread_create(&userInterfaceThread, NULL, userInterface, (void *)&interf_data))
     {
-        free(username_payload);
-        destroy_packet(packetUsername);
+        free(username);
+        free((char*)notification_data->username);
+        free(notification_data);
+        free((char*)interf_data.username);
         exit(EXIT_FAILURE);
     }
 
     pthread_join(userInterfaceThread, NULL);
 
-    free(username_payload);
-    destroy_packet(packetUsername);
+    free(username);
+    free((char*)notification_data->username);
+    free(notification_data);
+    free((char*)interf_data.username);
 
     return 0;
 }

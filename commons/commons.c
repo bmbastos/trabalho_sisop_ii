@@ -5,29 +5,33 @@
 
 packet_t *create_packet(type_packet_t type, const char *payload, int payload_length)
 {
-    packet_t *packet = malloc(sizeof(packet_t));
+    packet_t *packet = (packet_t*)malloc(sizeof(packet_t));
     if (!packet)
     {
-        return NULL;
-    }
-
-    packet->type = type;
-    if (payload)
-    {
-        packet->payload = (char*)malloc(payload_length);
-        if (!packet->payload)
-        {
-            free(packet);
-            return NULL;
-        }
-        memcpy(packet->payload, payload, payload_length);
+        packet = NULL;
     }
     else
     {
-        packet->payload = NULL;
+        packet->type = type;
+        if (payload)
+        {
+            packet->payload = (char*)malloc(payload_length);
+            if (!packet->payload)
+            {
+                destroy_packet(packet);
+                packet = NULL;
+            }
+            else
+            {
+                memcpy(packet->payload, payload, payload_length);
+            }
+        }
+        else
+        {
+            packet->payload = NULL;
+        }
+        packet->length_payload = payload_length;
     }
-    packet->length_payload = payload_length;
-
     return packet;
 }
 
@@ -171,13 +175,13 @@ packet_t *receive_packet_wo_payload(int socket)
 
     if (read(socket, &(packet->type), sizeof(packet->type)) <= 0)
     {
-        free(packet);
+        destroy_packet(packet);
         return NULL;
     }
 
     if (read(socket, &(packet->length_payload), sizeof(packet->length_payload)) <= 0)
     {
-        free(packet);
+        destroy_packet(packet);
         return NULL;
     }
 
@@ -192,7 +196,7 @@ int receive_packet_payload(int socket, packet_t *packet) {
     }
 
     if (packet->length_payload > 0 && !packet->payload) {
-        packet->payload = (char *)malloc(packet->length_payload);
+        packet->payload = (char *)malloc(packet->length_payload+1);
         if (!packet->payload) {
             return ERROR;
         }

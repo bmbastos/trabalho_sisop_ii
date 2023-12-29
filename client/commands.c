@@ -21,6 +21,7 @@ int upload_file(const char *filepath, int socket) {
 
     packet_t *filename_packet = create_packet(CMD_UPLOAD, filename, strlen(filename)+1);
     if (!filename_packet) {
+        destroy_packet(filename_packet);
         return ERROR;
     }
 
@@ -36,6 +37,7 @@ int upload_file(const char *filepath, int socket) {
     free(file_buffer);
 
     if (!data_packet) {
+        destroy_packet(data_packet);
         return ERROR;
     }
 
@@ -54,6 +56,7 @@ int download_file(const char *filename, int socket, int on_sync_dir, const char*
 
     if (send_packet_to_socket(socket, packet))
     {
+        destroy_packet(packet);
         return ERROR;
     }
 
@@ -81,23 +84,26 @@ int download_file(const char *filename, int socket, int on_sync_dir, const char*
         return ERROR;
     }
 
-    const packet_t *receivedFilePacket = receive_packet_from_socket(socket);
+    packet_t *receivedFilePacket = receive_packet_from_socket(socket);
     if (!receivedFilePacket) {
+        destroy_packet(receivedFilePacket);
         fclose(file_ptr);
         return ERROR;
     }
 
     if (fwrite(receivedFilePacket->payload, 1, receivedFilePacket->length_payload, file_ptr) != receivedFilePacket->length_payload) {
+        destroy_packet(receivedFilePacket);
         fclose(file_ptr);
         return ERROR;
-    } else {
-    }    
+    }
+
+    destroy_packet(receivedFilePacket);
+    destroy_packet(packet);
 
     if (fclose(file_ptr) < 0)
     {
         return ERROR;
     }
-
     return 0;
 }
 
@@ -107,6 +113,7 @@ int delete_file(const char *filename, int socket, const char* username)
 
     if (send_packet_to_socket(socket, packet) < 0)
     {
+        destroy_packet(packet);
         return ERROR;
     }
 
@@ -118,7 +125,7 @@ int delete_file(const char *filename, int socket, const char* username)
     }
 
     delete_local_file(filename, username, currentPath);
-
+    destroy_packet(packet);
     return 0;
 }
 
@@ -139,13 +146,15 @@ int list_server(int socket)
 
     if (send_packet_to_socket(socket, packet) < 0)
     {
+        destroy_packet(packet);
         return ERROR;
     }
     
-    const packet_t *packetFileListBuffer = receive_packet_from_socket(socket);
+    packet_t *packetFileListBuffer = receive_packet_from_socket(socket);
 
     if (!packetFileListBuffer)
     {
+        destroy_packet(packetFileListBuffer);
         close(socket);
         return ERROR;
     }
@@ -161,7 +170,9 @@ int list_server(int socket)
     {
         printf("(SERVER side debug) file_list server: %s\n", fileList);
     }
-
+    free(fileList);
+    destroy_packet(packetFileListBuffer);
+    destroy_packet(packet);
     return 0;
 }
 
@@ -222,23 +233,36 @@ int receive_data(int socket, void *buffer, size_t length, int timeout_sec)
     return total_received;
 }
 
-int close_connection(int socket) {
-    packet_t *packet = create_packet(CMD_EXIT, NULL, 0);
+int close_connection(int socket)
+{
+    int response = ERROR;
 
-    if (send_packet_to_socket(socket, packet) < 0)
+    packet_t *packet = create_packet(CMD_EXIT, NULL, 0);
+    if (!packet)
     {
-        free(packet);
         return ERROR;
     }
 
-    packet_t *packetExitResponse = receive_packet_from_socket(socket);
-    int response = ERROR;
-    
-
-    if (packetExitResponse) {
-        response = atoi(packetExitResponse->payload);
-        destroy_packet(packetExitResponse);
+    if (send_packet_to_socket(socket, packet) < 0)
+    {
+        perror("Error sending exit packet");
     }
+    else
+    {
+        packet_t *packetExitResponse = receive_packet_from_socket(socket);
+
+        if (packetExitResponse)
+        {
+            response = atoi(packetExitResponse->payload);
+            destroy_packet(packetExitResponse);
+        }
+        else
+        {
+            perror("Error receiving exit response");
+        }
+    }
+
+    destroy_packet(packet);
 
     return (response == EXIT_SUCCESS) ? EXIT_SUCCESS : ERROR;
 }

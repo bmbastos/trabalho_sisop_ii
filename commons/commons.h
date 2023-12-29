@@ -50,6 +50,7 @@ typedef struct thread_data
     int socket;
 } thread_data_t;
 
+// Operações sobre pacotes
 packet_t* create_packet(type_packet_t type, const char* payload, int payload_length);
 void destroy_packet(packet_t* packet);
 const char* get_packet_type_name(type_packet_t type);
@@ -59,6 +60,8 @@ packet_t * receive_packet_from_socket(int socket);
 packet_t* receive_packet_wo_payload(int socket);
 int receive_packet_payload(int socket, packet_t *packet);
 void destroy_packet(packet_t *packet);
+
+// Operações auxiliares
 char* clone_string(const char* src);
 int is_equal(const char *str1, const char *str2);
 void print_socket_info(struct sockaddr_in cli_addr);

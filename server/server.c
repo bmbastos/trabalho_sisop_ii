@@ -78,15 +78,17 @@ list_users_t *create_new_user(char *user_name, int user_socket)
 
 int send_connection_response(int response, int socket)
 {
+    int ret = 0;
     char response_str[12];
     snprintf(response_str, sizeof(response_str), "%d", response);
 
-    const packet_t* login_response_packet = create_packet(DATA, response_str, strlen(response_str)+1);
+    packet_t* login_response_packet = create_packet(DATA, response_str, strlen(response_str)+1);
     if (!login_response_packet) {
         return ERROR;
     }
-
-    return send_packet_to_socket(socket, login_response_packet);
+    ret = send_packet_to_socket(socket, login_response_packet);
+    destroy_packet(login_response_packet);
+    return ret;
 }
 
 list_users_t *insert_or_update_new_connection(list_users_t *list, char *username, int user_socket, int *conn_closed, int isNotifySocket)
@@ -388,6 +390,7 @@ void send_changes_to_clients(char *username, type_packet_t packet_type, char* fi
             }
             packet_t *packet = create_packet(packet_type, filename, strlen(filename) + 1);
             send_packet_to_socket(notify_sockets[i], packet);
+            destroy_packet(packet);
         }
     }
 }
@@ -503,7 +506,7 @@ void *handle_new_client_connection(void *args)
             }
         }
     }
-    free(packet_buffer);
+    destroy_packet(packet_buffer);
     return (void*)0;
 }
 
