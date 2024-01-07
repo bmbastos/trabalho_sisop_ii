@@ -22,6 +22,8 @@ int data_socket;
 int get_sync_dir(char *username, int data_socket);
 void delete_local_file(const char *filename, const char *username, const char *filepath);
 
+int shouldPropagate = 1;
+
 void printUsage()
 {
     printf("Invalid arguments.\nUsage: ./client <username> <server_ip_address> <port>\n");
@@ -116,37 +118,40 @@ void handle_inotify_event(int fd, int data_socket, char* path, const char *usern
         char currentPath[1024];
         strcpy(currentPath, path);
 
-        if (event->mask & IN_CLOSE_WRITE)
+        if (shouldPropagate)
         {
-            printf("IN_CLOSE_WRITE\n");
-            strcat(currentPath, "/");
-            strcat(currentPath, event->name);
-            upload_file(currentPath, data_socket);
-        }
+            if (event->mask & IN_CLOSE_WRITE)
+            {
+                printf("IN_CLOSE_WRITE\n");
+                strcat(currentPath, "/");
+                strcat(currentPath, event->name);
+                upload_file(currentPath, data_socket);
+            }
 
-        if (event->mask & IN_CREATE)
-        {
-            printf("IN_CREATE\n");
-            strcat(currentPath, "/");
-            strcat(currentPath, event->name);
-            upload_file(currentPath, data_socket);
-        }
-        if (event->mask & IN_MOVED_FROM)
-        {
-            printf("IN_MOVED_FROM\n");
-            delete_file(event->name, data_socket, username);
-        }
-        if (event->mask & IN_MOVED_TO)
-        {
-            printf("IN_MOVED_TO\n");
-            strcat(currentPath, "/");
-            strcat(currentPath, event->name);
-            upload_file(currentPath, data_socket);
-        }
-        if (event->mask & IN_DELETE)
-        {
-            printf("IN_DELETE\n");
-            delete_file(event->name, data_socket, username);
+            if (event->mask & IN_CREATE)
+            {
+                printf("IN_CREATE\n");
+                strcat(currentPath, "/");
+                strcat(currentPath, event->name);
+                upload_file(currentPath, data_socket);
+            }
+            if (event->mask & IN_MOVED_FROM)
+            {
+                printf("IN_MOVED_FROM\n");
+                delete_file(event->name, data_socket, username);
+            }
+            if (event->mask & IN_MOVED_TO)
+            {
+                printf("IN_MOVED_TO\n");
+                strcat(currentPath, "/");
+                strcat(currentPath, event->name);
+                upload_file(currentPath, data_socket);
+            }
+            if (event->mask & IN_DELETE)
+            {
+                printf("IN_DELETE\n");
+                delete_file(event->name, data_socket, username);
+            }
         }
 
         ptr += sizeof(struct inotify_event) + event->len;
@@ -377,11 +382,15 @@ void *watch_server_changes(void *data_arg)
             {
                 exit(EXIT_FAILURE);
             }
+            shouldPropagate = 0;
             delete_local_file(packet_buffer->payload, data->username, currentPath);
+            shouldPropagate = 1;
         }
         else if (packet_buffer->type == CMD_DOWNLOAD)
         {
+            shouldPropagate = 0;
             download_file(packet_buffer->payload, data_socket, 1, data->username);
+            shouldPropagate = 1;
         }
     }
     destroy_packet(packet_watch);
