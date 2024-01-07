@@ -118,6 +118,7 @@ void handle_inotify_event(int fd, int data_socket, char* path, const char *usern
 
         if (event->mask & IN_CLOSE_WRITE)
         {
+            printf("IN_CLOSE_WRITE\n");
             strcat(currentPath, "/");
             strcat(currentPath, event->name);
             upload_file(currentPath, data_socket);
@@ -125,22 +126,26 @@ void handle_inotify_event(int fd, int data_socket, char* path, const char *usern
 
         if (event->mask & IN_CREATE)
         {
+            printf("IN_CREATE\n");
             strcat(currentPath, "/");
             strcat(currentPath, event->name);
             upload_file(currentPath, data_socket);
         }
         if (event->mask & IN_MOVED_FROM)
         {
+            printf("IN_MOVED_FROM\n");
             delete_file(event->name, data_socket, username);
         }
         if (event->mask & IN_MOVED_TO)
         {
+            printf("IN_MOVED_TO\n");
             strcat(currentPath, "/");
             strcat(currentPath, event->name);
             upload_file(currentPath, data_socket);
         }
         if (event->mask & IN_DELETE)
         {
+            printf("IN_DELETE\n");
             delete_file(event->name, data_socket, username);
         }
 

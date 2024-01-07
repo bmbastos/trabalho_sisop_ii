@@ -299,6 +299,7 @@ int handle_packet(thread_data_t *data_ptr, int *conn_closed)
         {
             return ERROR;
         }
+        printf("Send changes upload (download) \n");
         send_changes_to_clients(data_ptr->username, CMD_DOWNLOAD, packet.payload, data_ptr->socket);
         break;
     case CMD_DOWNLOAD:
@@ -312,6 +313,7 @@ int handle_packet(thread_data_t *data_ptr, int *conn_closed)
         {
             return ERROR;
         }
+        printf("Send changes delete \n");
         send_changes_to_clients(data_ptr->username, CMD_DELETE, packet.payload, data_ptr->socket);
         break;
     case CMD_LIST_SERVER:
