@@ -12,9 +12,17 @@
 #endif
 #include "../commons/commons.h"
 #include "./commands.h"
+#include <signal.h>
 
 #define DIR_FOLDER_PREFIX "sync_dir_"
 void send_changes_to_clients(char *username, type_packet_t packet_type, char* filename, int sender_socket);
+
+// Estrutura para armazenar o estado do servidor
+typedef struct serverState
+{
+    uint8_t running;
+    int socket_fd;
+} server_state_t;
 
 typedef struct
 {
@@ -31,6 +39,7 @@ typedef struct list_of_users
     struct list_of_users *next;
 } list_users_t;
 
+server_state_t server_state;
 list_users_t *users = NULL;
 pthread_mutex_t list_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -47,6 +56,8 @@ int setupSocket(int *sockfd, int port);
 int handle_packet(thread_data_t *data_ptr, int *conn_closed);
 packet_t *receive_packet_from_socket(int socket);
 void *handle_new_client_connection(void *args);
+
+void handle_signal(int sig_id);
 
 // ===========================================================================================================================================================
 /*
@@ -510,6 +521,16 @@ void *handle_new_client_connection(void *args)
     return (void*)0;
 }
 
+void handle_signal(int sig_id)
+{
+    if (sig_id == SIGINT)
+    {
+        printf("\nEncerrando o servidor...\n");
+        server_state.running = 0;
+        close(server_state.socket_fd);
+    }
+}
+
 int main(int argc, char *argv[])
 {
     int sockfd, newsockfd, n;
@@ -536,14 +557,22 @@ int main(int argc, char *argv[])
     }
 
     clilen = sizeof(struct sockaddr_in);
+    
+    server_state.running = 1;
+    server_state.socket_fd = sockfd;
 
-    while (1)
+    signal(SIGINT, handle_signal);
+
+    while (server_state.running)
     {
         newsockfd = 0;
         printf("Accepting conn\n");
         if ((newsockfd = accept(sockfd, (struct sockaddr *)&cli_addr, &clilen)) < 0)
         {
-            perror("ERROR on accept\n");
+            if (server_state.running == 1)
+            {
+                perror("ERROR on accept\n");
+            }
             continue;
         }
 
@@ -559,6 +588,8 @@ int main(int argc, char *argv[])
         }
         pthread_detach(thread);
     }
+
+    printf("Aqui iremos começar a eleição de um novo servidor...\n");
 
     free_user_list(users);
     close(sockfd);

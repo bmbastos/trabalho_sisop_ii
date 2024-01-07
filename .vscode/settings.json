@@ -10,6 +10,7 @@
         "string_view": "c",
         "vector": "c",
         "complex": "c",
-        "commands.h": "c"
+        "commands.h": "c",
+        "signal.h": "c"
     }
 }
