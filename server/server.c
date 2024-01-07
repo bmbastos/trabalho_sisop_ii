@@ -489,6 +489,14 @@ void *handle_new_client_connection(void *args)
             thread_data->username = strdup(username);
             thread_data->userpath = strdup(path);
 
+            printf("Dados da thread:\n");
+            printf("thread_data->packet.type: %d\n", thread_data->packet.type);
+            // printf("thread_data->packet.payload: %s\n", thread_data->packet.payload);
+            printf("thread_data->packet.length_payload: %d\n", thread_data->packet.length_payload);
+            printf("thread_data->socket: %d\n", thread_data->socket);
+            printf("thread_data->username: %s\n", thread_data->username);
+            printf("thread_data->userpath: %s\n", thread_data->userpath);
+
             if (handle_packet(thread_data, &conn_closed) == ERROR)
             {
                 printf("Cheguei no ERRO do handle packet\n");
