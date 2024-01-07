@@ -458,7 +458,7 @@ void *handle_new_client_connection(void *args)
             }
         }
         else if (packet_buffer->type == INITIAL_SYNC)
-        {   
+        {
             strcpy(username, packet_buffer->payload);
             send_files(socket, path);
 
@@ -521,12 +521,12 @@ int main(int argc, char *argv[])
 
     if (argc > 1)
     {
-        int chosen_port = atoi(argv[1]);
-        if (chosen_port > 0) 
+        int chosen_port = atoi(argv[2]);
+        if (chosen_port > 0)
         {
             port = chosen_port;
         } else {
-            printf("Invalid port. Starting server on default port.\n");
+            printf("Invalid port. Starting server on default port (4000).\n");
         }
     }
 
