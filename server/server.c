@@ -310,6 +310,7 @@ int handle_packet(thread_data_t *data_ptr, int *conn_closed)
         {
             return ERROR;
         }
+        printf("Send changes upload (download) \n");
         send_changes_to_clients(data_ptr->username, CMD_DOWNLOAD, packet.payload, data_ptr->socket);
         break;
     case CMD_DOWNLOAD:
@@ -323,6 +324,7 @@ int handle_packet(thread_data_t *data_ptr, int *conn_closed)
         {
             return ERROR;
         }
+        printf("Send changes delete \n");
         send_changes_to_clients(data_ptr->username, CMD_DELETE, packet.payload, data_ptr->socket);
         break;
     case CMD_LIST_SERVER:
@@ -469,7 +471,7 @@ void *handle_new_client_connection(void *args)
             }
         }
         else if (packet_buffer->type == INITIAL_SYNC)
-        {   
+        {
             strcpy(username, packet_buffer->payload);
             send_files(socket, path);
 
@@ -499,6 +501,14 @@ void *handle_new_client_connection(void *args)
             thread_data->socket = socket;
             thread_data->username = strdup(username);
             thread_data->userpath = strdup(path);
+
+            printf("Dados da thread:\n");
+            printf("thread_data->packet.type: %d\n", thread_data->packet.type);
+            // printf("thread_data->packet.payload: %s\n", thread_data->packet.payload);
+            printf("thread_data->packet.length_payload: %d\n", thread_data->packet.length_payload);
+            printf("thread_data->socket: %d\n", thread_data->socket);
+            printf("thread_data->username: %s\n", thread_data->username);
+            printf("thread_data->userpath: %s\n", thread_data->userpath);
 
             if (handle_packet(thread_data, &conn_closed) == ERROR)
             {
@@ -542,12 +552,12 @@ int main(int argc, char *argv[])
 
     if (argc > 1)
     {
-        int chosen_port = atoi(argv[1]);
-        if (chosen_port > 0) 
+        int chosen_port = atoi(argv[2]);
+        if (chosen_port > 0)
         {
             port = chosen_port;
         } else {
-            printf("Invalid port. Starting server on default port.\n");
+            printf("Invalid port. Starting server on default port (4000).\n");
         }
     }
 
